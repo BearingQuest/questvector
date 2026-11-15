@@ -33,22 +33,34 @@ def full_dossier() -> Dossier:
 def sample_match_result() -> MatchResult:
     return MatchResult(
         g_force_score=92.4,
-        category_scores=(CategoryScore(name="cloud", weight=1.0, coverage=0.924, matched_keywords=("aws",)),),
+        category_scores=(
+            CategoryScore(name="cloud", weight=1.0, coverage=0.924, matched_keywords=("aws",)),
+        ),
         gaps=("kubernetes",),
         red_flags=(),
         alert_level=AlertLevel.SUCCESS,
     )
 
 
-def test_export_pdf_produces_valid_pdf_file(tmp_path: Path, full_dossier: Dossier, sample_match_result: MatchResult) -> None:
+def test_export_pdf_produces_valid_pdf_file(
+    tmp_path: Path, full_dossier: Dossier, sample_match_result: MatchResult
+) -> None:
     output_path = tmp_path / "bundle.pdf"
-    export_bundle(full_dossier, output_path, fmt="pdf", match_result=sample_match_result, narrative="A summary.")
+    export_bundle(
+        full_dossier,
+        output_path,
+        fmt="pdf",
+        match_result=sample_match_result,
+        narrative="A summary.",
+    )
 
     assert output_path.exists()
     assert output_path.read_bytes()[:5] == b"%PDF-"
 
 
-def test_export_docx_produces_reopenable_document(tmp_path: Path, full_dossier: Dossier, sample_match_result: MatchResult) -> None:
+def test_export_docx_produces_reopenable_document(
+    tmp_path: Path, full_dossier: Dossier, sample_match_result: MatchResult
+) -> None:
     output_path = tmp_path / "bundle.docx"
     export_bundle(full_dossier, output_path, fmt="docx", match_result=sample_match_result)
 
@@ -67,12 +79,16 @@ def test_export_handles_missing_optional_sections(tmp_path: Path) -> None:
     assert output_path.exists()
 
 
-def test_export_unsupported_format_raises_export_error(tmp_path: Path, full_dossier: Dossier) -> None:
+def test_export_unsupported_format_raises_export_error(
+    tmp_path: Path, full_dossier: Dossier
+) -> None:
     with pytest.raises(ExportError):
         export_bundle(full_dossier, tmp_path / "bundle.txt", fmt="txt")  # type: ignore[arg-type]
 
 
-def test_export_pdf_without_match_result_or_narrative(tmp_path: Path, full_dossier: Dossier) -> None:
+def test_export_pdf_without_match_result_or_narrative(
+    tmp_path: Path, full_dossier: Dossier
+) -> None:
     output_path = tmp_path / "bundle.pdf"
     export_bundle(full_dossier, output_path, fmt="pdf")
     assert output_path.read_bytes()[:5] == b"%PDF-"

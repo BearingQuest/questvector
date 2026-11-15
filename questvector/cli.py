@@ -182,9 +182,13 @@ def _cmd_sync_ast(args: argparse.Namespace) -> int:
             )
         )
     else:
-        print(f"[QV] G-Force Match: {result.g_force_score:.1f}%  ({result.alert_level.value.upper()})")
+        print(
+            f"[QV] G-Force Match: {result.g_force_score:.1f}%  ({result.alert_level.value.upper()})"
+        )
         for category in result.category_scores:
-            print(f"  - {category.name}: {category.coverage * 100:.0f}% coverage (weight {category.weight:.2f})")
+            print(
+                f"  - {category.name}: {category.coverage * 100:.0f}% coverage (weight {category.weight:.2f})"
+            )
         if result.gaps:
             print(f"[QV] Gaps: {', '.join(result.gaps)}")
         if result.weak_categories:
@@ -232,7 +236,9 @@ def _cmd_export(args: argparse.Namespace) -> int:
             timeout=vault_data.llm_timeout,
         )
         dossier_context = "\n".join(c.text for c in dossier.capabilities[:20])
-        prompt = build_narrative_prompt(dossier_context, job_description.raw_text, tone_style=template.tone_style)
+        prompt = build_narrative_prompt(
+            dossier_context, job_description.raw_text, tone_style=template.tone_style
+        )
         narrative = generator.generate(prompt)
 
     output_dir = workspace_dir / "bundles"
@@ -260,7 +266,9 @@ def _cmd_template_validate(args: argparse.Namespace) -> int:
         print(json.dumps(result.to_dict()))
     else:
         status = "VALID" if result.valid else "INVALID"
-        print(f"[QV] Template '{result.template_id}': {status} (weight sum {result.weight_sum:.4f})")
+        print(
+            f"[QV] Template '{result.template_id}': {status} (weight sum {result.weight_sum:.4f})"
+        )
         for issue in result.issues:
             print(f"  - {issue}")
     return 0 if result.valid else 1
@@ -320,7 +328,9 @@ def _cmd_vault_set_key(args: argparse.Namespace) -> int:
             data.llm_api_keys[args.provider] = api_key
 
     update_vault(vault_path, passphrase, _set_key)
-    print(f"[QV] LLM provider '{args.provider}' (model: {model}) stored in encrypted vault: {vault_path}")
+    print(
+        f"[QV] LLM provider '{args.provider}' (model: {model}) stored in encrypted vault: {vault_path}"
+    )
     return 0
 
 
@@ -350,10 +360,14 @@ def _build_parser() -> argparse.ArgumentParser:
     export.add_argument("--bundle", required=True, help="Output bundle name (without extension)")
     export.add_argument("--format", required=True, choices=("pdf", "docx"), help="Export format")
     export.add_argument("--dir", help="Workspace directory (default: current directory)")
-    export.add_argument("--target", help="Optional job description file to include a match summary for")
+    export.add_argument(
+        "--target", help="Optional job description file to include a match summary for"
+    )
     export.add_argument("--template", help="Mission template id (required if --target is given)")
     export.add_argument(
-        "--narrative", action="store_true", help="Generate an LLM narrative summary (requires vault + --target/--template)"
+        "--narrative",
+        action="store_true",
+        help="Generate an LLM narrative summary (requires vault + --target/--template)",
     )
     export.set_defaults(func=_cmd_export)
 
@@ -368,7 +382,8 @@ def _build_parser() -> argparse.ArgumentParser:
     vault = subparsers.add_parser("vault", help="Encrypted local vault operations")
     vault_subparsers = vault.add_subparsers(dest="vault_command", required=True)
     set_key = vault_subparsers.add_parser(
-        "set-key", help="Store an LLM provider (and, for cloud providers, an API key) in the encrypted vault"
+        "set-key",
+        help="Store an LLM provider (and, for cloud providers, an API key) in the encrypted vault",
     )
     set_key.add_argument(
         "--provider",

@@ -95,7 +95,8 @@ def _read_text(path: Path) -> str:
         ) from exc
     except OSError as exc:
         raise ParseError(
-            f"Could not read dossier file: {path.name}", context={"path": str(path), "os_error": str(exc)}
+            f"Could not read dossier file: {path.name}",
+            context={"path": str(path), "os_error": str(exc)},
         ) from exc
     return content
 

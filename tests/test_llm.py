@@ -50,13 +50,15 @@ def _sdk_installed(module: str) -> bool:
 # SDK is an optional extra (see pyproject.toml); without it the tests skip
 # with this reason instead of failing. CI installs `.[dev,llm]` so they run.
 requires_anthropic = pytest.mark.skipif(
-    not _sdk_installed("anthropic"), reason="anthropic SDK not installed (pip install -e '.[llm-anthropic]')"
+    not _sdk_installed("anthropic"),
+    reason="anthropic SDK not installed (pip install -e '.[llm-anthropic]')",
 )
 requires_openai = pytest.mark.skipif(
     not _sdk_installed("openai"), reason="openai SDK not installed (pip install -e '.[llm-openai]')"
 )
 requires_gemini = pytest.mark.skipif(
-    not _sdk_installed("google.genai"), reason="google-genai SDK not installed (pip install -e '.[llm-gemini]')"
+    not _sdk_installed("google.genai"),
+    reason="google-genai SDK not installed (pip install -e '.[llm-gemini]')",
 )
 
 # --- Anthropic -------------------------------------------------------------
@@ -81,7 +83,8 @@ def test_generate_returns_text_from_mocked_client() -> None:
         mock_client = MagicMock()
         mock_anthropic_cls.return_value = mock_client
         mock_client.messages.create.return_value = SimpleNamespace(
-            content=[TextBlock(type="text", text="Tailored summary paragraph.")], stop_reason="end_turn"
+            content=[TextBlock(type="text", text="Tailored summary paragraph.")],
+            stop_reason="end_turn",
         )
 
         generator = AnthropicNarrativeGenerator(api_key="sk-test")
@@ -159,7 +162,9 @@ def test_generate_raises_on_empty_response_content() -> None:
     with patch("anthropic.Anthropic") as mock_anthropic_cls:
         mock_client = MagicMock()
         mock_anthropic_cls.return_value = mock_client
-        mock_client.messages.create.return_value = SimpleNamespace(content=[], stop_reason="end_turn")
+        mock_client.messages.create.return_value = SimpleNamespace(
+            content=[], stop_reason="end_turn"
+        )
 
         generator = AnthropicNarrativeGenerator(api_key="sk-test")
         with pytest.raises(LLMError):
@@ -216,7 +221,9 @@ def test_openai_generate_returns_text_from_mocked_client() -> None:
         mock_client = MagicMock()
         mock_openai_cls.return_value = mock_client
         mock_client.chat.completions.create.return_value = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="Tailored summary paragraph."))]
+            choices=[
+                SimpleNamespace(message=SimpleNamespace(content="Tailored summary paragraph."))
+            ]
         )
 
         generator = OpenAINarrativeGenerator(api_key="sk-test")
@@ -273,7 +280,9 @@ def test_gemini_generate_returns_text_from_mocked_client() -> None:
     with patch("google.genai.Client") as mock_client_cls:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        mock_client.models.generate_content.return_value = SimpleNamespace(text="Tailored summary paragraph.")
+        mock_client.models.generate_content.return_value = SimpleNamespace(
+            text="Tailored summary paragraph."
+        )
 
         generator = GeminiNarrativeGenerator(api_key="sk-test")
         result = generator.generate("some prompt")
@@ -325,17 +334,23 @@ def _model_not_found_error(provider: str, *, code: str = "model_not_found") -> E
 
         request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
         body = {"type": "error", "error": {"type": "not_found_error", "message": message}}
-        return anthropic.NotFoundError(message, response=httpx2.Response(404, request=request), body=body)
+        return anthropic.NotFoundError(
+            message, response=httpx2.Response(404, request=request), body=body
+        )
     if provider == "openai":
         import httpx2
         import openai
 
         request = httpx2.Request("POST", "https://api.openai.com/v1/chat/completions")
         body = {"message": message, "type": "invalid_request_error", "param": None, "code": code}
-        return openai.NotFoundError(message, response=httpx2.Response(404, request=request), body=body)
+        return openai.NotFoundError(
+            message, response=httpx2.Response(404, request=request), body=body
+        )
     from google.genai import errors as genai_errors
 
-    return genai_errors.ClientError(404, {"error": {"code": 404, "message": message, "status": "NOT_FOUND"}})
+    return genai_errors.ClientError(
+        404, {"error": {"code": 404, "message": message, "status": "NOT_FOUND"}}
+    )
 
 
 _REMOTE_PROVIDER_CALLS = [
@@ -352,14 +367,18 @@ def _generate_with_error(provider: str, client_path: str, call: str, error: Exce
         for attribute in call.split("."):
             method = getattr(method, attribute)
         method.side_effect = error
-        generator = create_narrative_generator(provider, api_key=_NOT_FOUND_KEY, model="retired-model")
+        generator = create_narrative_generator(
+            provider, api_key=_NOT_FOUND_KEY, model="retired-model"
+        )
         with pytest.raises(LLMError) as excinfo:
             generator.generate("some prompt")
     return excinfo.value
 
 
 @pytest.mark.parametrize(("provider", "client_path", "call"), _REMOTE_PROVIDER_CALLS)
-def test_model_not_found_names_provider_model_and_fix(provider: str, client_path: str, call: str) -> None:
+def test_model_not_found_names_provider_model_and_fix(
+    provider: str, client_path: str, call: str
+) -> None:
     sdk_error = _model_not_found_error(provider)
     assert _NOT_FOUND_KEY in str(sdk_error)  # the SDK error really does echo it
 
@@ -376,7 +395,10 @@ def test_model_not_found_names_provider_model_and_fix(provider: str, client_path
 @requires_openai
 def test_openai_404_for_another_reason_stays_a_generic_api_error() -> None:
     error = _generate_with_error(
-        "openai", "openai.OpenAI", "chat.completions.create", _model_not_found_error("openai", code="other_code")
+        "openai",
+        "openai.OpenAI",
+        "chat.completions.create",
+        _model_not_found_error("openai", code="other_code"),
     )
 
     assert "qv vault set-key" not in str(error)
@@ -403,7 +425,9 @@ def test_ollama_generator_accepts_https_host() -> None:
 
 def test_ollama_generate_returns_text_from_mocked_server() -> None:
     fake_response = MagicMock()
-    fake_response.read.return_value = json.dumps({"response": "Tailored summary paragraph."}).encode("utf-8")
+    fake_response.read.return_value = json.dumps(
+        {"response": "Tailored summary paragraph."}
+    ).encode("utf-8")
     fake_response.__enter__.return_value = fake_response
 
     with patch("urllib.request.urlopen", return_value=fake_response) as mock_urlopen:
@@ -448,7 +472,9 @@ def _ollama_http_error(code: int, body: bytes) -> urllib.error.HTTPError:
 
 
 def test_ollama_generate_switches_thinking_off() -> None:
-    with patch("urllib.request.urlopen", return_value=_ollama_response({"response": "ok"})) as mock_urlopen:
+    with patch(
+        "urllib.request.urlopen", return_value=_ollama_response({"response": "ok"})
+    ) as mock_urlopen:
         OllamaNarrativeGenerator(model="gemma4").generate("some prompt")
 
     sent = json.loads(mock_urlopen.call_args.args[0].data)
@@ -456,14 +482,18 @@ def test_ollama_generate_switches_thinking_off() -> None:
 
 
 def test_ollama_generate_uses_default_timeout() -> None:
-    with patch("urllib.request.urlopen", return_value=_ollama_response({"response": "ok"})) as mock_urlopen:
+    with patch(
+        "urllib.request.urlopen", return_value=_ollama_response({"response": "ok"})
+    ) as mock_urlopen:
         OllamaNarrativeGenerator(model="llama3.1").generate("some prompt")
 
     assert mock_urlopen.call_args.kwargs["timeout"] == DEFAULT_OLLAMA_TIMEOUT
 
 
 def test_ollama_generate_passes_custom_timeout_to_urlopen() -> None:
-    with patch("urllib.request.urlopen", return_value=_ollama_response({"response": "ok"})) as mock_urlopen:
+    with patch(
+        "urllib.request.urlopen", return_value=_ollama_response({"response": "ok"})
+    ) as mock_urlopen:
         OllamaNarrativeGenerator(model="llama3.1", timeout=42).generate("some prompt")
 
     assert mock_urlopen.call_args.kwargs["timeout"] == 42
@@ -526,7 +556,12 @@ def test_ollama_generate_unreachable_server_still_says_is_it_running() -> None:
 
 def test_ollama_generate_reports_token_limit_spent_on_thinking() -> None:
     # Shaped like gemma4's real reply on 20 Oct, before thinking was switched off.
-    body = {"response": "", "thinking": "Let me consider...", "done_reason": "length", "eval_count": 600}
+    body = {
+        "response": "",
+        "thinking": "Let me consider...",
+        "done_reason": "length",
+        "eval_count": 600,
+    }
     with patch("urllib.request.urlopen", return_value=_ollama_response(body)):
         generator = OllamaNarrativeGenerator(model="gemma4")
         with pytest.raises(LLMError, match="whole 600-token limit reasoning") as exc_info:
@@ -617,13 +652,17 @@ def test_create_narrative_generator_dispatches_to_ollama_without_api_key() -> No
 
 def test_create_narrative_generator_passes_timeout_to_ollama() -> None:
     generator = create_narrative_generator("ollama", model="llama3.1", timeout=45)
-    with patch("urllib.request.urlopen", return_value=_ollama_response({"response": "ok"})) as mock_urlopen:
+    with patch(
+        "urllib.request.urlopen", return_value=_ollama_response({"response": "ok"})
+    ) as mock_urlopen:
         generator.generate("some prompt")
 
     assert mock_urlopen.call_args.kwargs["timeout"] == 45
 
 
-def test_registering_a_fifth_provider_requires_no_change_to_the_factory(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_registering_a_fifth_provider_requires_no_change_to_the_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Proves the registry is genuinely data-driven: a new ProviderSpec with
     # its own factory is enough to make create_narrative_generator() (and,
     # by extension, the CLI's --provider choices and the desktop bridge's

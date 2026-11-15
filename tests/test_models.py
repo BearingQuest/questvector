@@ -15,7 +15,9 @@ from questvector.core.models import (
 def test_dossier_all_keywords_unions_all_sections() -> None:
     dossier = Dossier(
         capabilities=(Capability(domain="Cloud", text="aws", keywords=frozenset({"aws"})),),
-        chronology=(ChronologyEntry(heading="Role", bullets=("x",), keywords=frozenset({"kubernetes"})),),
+        chronology=(
+            ChronologyEntry(heading="Role", bullets=("x",), keywords=frozenset({"kubernetes"})),
+        ),
         impact=(ImpactStatement(heading="Impact", bullets=("y",), keywords=frozenset({"budget"})),),
     )
     assert dossier.all_keywords() == frozenset({"aws", "kubernetes", "budget"})

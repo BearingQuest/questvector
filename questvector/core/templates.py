@@ -234,7 +234,9 @@ def load_template(path: Path) -> MissionTemplate:
             context={"path": str(path)},
         )
     red_flag_phrases = _string_list(
-        jd_analysis.get("red_flag_phrases"), field_name="jd_analysis.red_flag_phrases", template_id=template_id
+        jd_analysis.get("red_flag_phrases"),
+        field_name="jd_analysis.red_flag_phrases",
+        template_id=template_id,
     )
     gap_coverage_threshold_raw = jd_analysis.get("gap_coverage_threshold")
     try:
@@ -256,7 +258,9 @@ def load_template(path: Path) -> MissionTemplate:
     tone_style = output_formatting.get("tone_style")
     target_page_budget_raw = output_formatting.get("target_page_budget")
     try:
-        target_page_budget = int(target_page_budget_raw) if target_page_budget_raw is not None else None
+        target_page_budget = (
+            int(target_page_budget_raw) if target_page_budget_raw is not None else None
+        )
     except (TypeError, ValueError) as exc:
         raise ValidationError(
             "Mission template 'output_formatting.target_page_budget' must be an integer",
@@ -346,7 +350,9 @@ def validate_template(
         tone_style=template.tone_style,
         target_page_budget=template.target_page_budget,
     )
-    issues.append(f"Rescaled all category weights by factor {scale:.4f} to sum to {WEIGHT_SUM_TARGET:.2f}")
+    issues.append(
+        f"Rescaled all category weights by factor {scale:.4f} to sum to {WEIGHT_SUM_TARGET:.2f}"
+    )
     return fixed_template, TemplateValidationResult(
         template_id=fixed_template.template_id,
         valid=True,

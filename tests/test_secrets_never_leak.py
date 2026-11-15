@@ -42,9 +42,15 @@ def _sdk_installed(module: str) -> bool:
         return False
 
 
-requires_anthropic = pytest.mark.skipif(not _sdk_installed("anthropic"), reason="anthropic SDK not installed")
-requires_openai = pytest.mark.skipif(not _sdk_installed("openai"), reason="openai SDK not installed")
-requires_gemini = pytest.mark.skipif(not _sdk_installed("google.genai"), reason="google-genai SDK not installed")
+requires_anthropic = pytest.mark.skipif(
+    not _sdk_installed("anthropic"), reason="anthropic SDK not installed"
+)
+requires_openai = pytest.mark.skipif(
+    not _sdk_installed("openai"), reason="openai SDK not installed"
+)
+requires_gemini = pytest.mark.skipif(
+    not _sdk_installed("google.genai"), reason="google-genai SDK not installed"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -92,7 +98,7 @@ def _pdf_text(path: Path) -> str:
     for match in re.finditer(rb"stream\r?\n(.*?)endstream", raw, re.S):
         try:
             parts.append(_decode_pdf_stream(match.group(1)).decode("latin-1"))
-        except (zlib.error, ValueError):
+        except zlib.error, ValueError:
             continue  # a stream with another filter (none in ReportLab's text output)
     return "\n".join(parts)
 
@@ -100,10 +106,14 @@ def _pdf_text(path: Path) -> str:
 def _docx_text(path: Path) -> str:
     """Return the text of every part inside a DOCX (zip) file."""
     with zipfile.ZipFile(path) as archive:
-        return "\n".join(archive.read(name).decode("utf-8", "replace") for name in archive.namelist())
+        return "\n".join(
+            archive.read(name).decode("utf-8", "replace") for name in archive.namelist()
+        )
 
 
-def _set_key(workspace_dir: Path, monkeypatch: pytest.MonkeyPatch, provider: str = "anthropic") -> int:
+def _set_key(
+    workspace_dir: Path, monkeypatch: pytest.MonkeyPatch, provider: str = "anthropic"
+) -> int:
     """Run `qv vault set-key` for a new vault with the markers as passphrase and key."""
     answers = iter([PASSPHRASE_MARKER, PASSPHRASE_MARKER, API_KEY_MARKER])
     monkeypatch.setattr(cli.getpass, "getpass", lambda *_a, **_k: next(answers))
@@ -158,8 +168,18 @@ def test_export_with_narrative_leaks_nothing(
         generator_cls.return_value.generate.return_value = "Generated narrative text."
         exit_code = cli.main(
             [
-                "export", "--dir", str(workspace_dir), "--bundle", "resume", "--format", fmt,
-                "--target", str(jd_path), "--template", "devops-senior-mgr", "--narrative",
+                "export",
+                "--dir",
+                str(workspace_dir),
+                "--bundle",
+                "resume",
+                "--format",
+                fmt,
+                "--target",
+                str(jd_path),
+                "--template",
+                "devops-senior-mgr",
+                "--narrative",
             ]
         )
 
@@ -174,7 +194,9 @@ def test_export_with_narrative_leaks_nothing(
     _assert_clean(text, f"the exported {fmt} bundle")
 
 
-def _cli_error(capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture, argv: list[str]) -> str:
+def _cli_error(
+    capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture, argv: list[str]
+) -> str:
     assert cli.main(argv) == 1
     output = _assert_flow_clean(capsys, caplog)
     assert "[QV] ERROR:" in output
@@ -192,7 +214,9 @@ def test_wrong_passphrase_error_leaks_nothing(
     capsys.readouterr()
     monkeypatch.setattr(cli.getpass, "getpass", lambda *_a, **_k: PASSPHRASE_MARKER + "-wrong")
 
-    output = _cli_error(capsys, caplog, ["vault", "set-key", "--dir", str(workspace_dir), "--provider", "ollama"])
+    output = _cli_error(
+        capsys, caplog, ["vault", "set-key", "--dir", str(workspace_dir), "--provider", "ollama"]
+    )
 
     assert "Incorrect passphrase" in output
     api_response = Api().set_llm_key(str(workspace_dir), PASSPHRASE_MARKER + "-wrong", "ollama")
@@ -221,8 +245,18 @@ def test_tampered_vault_error_leaks_nothing(
         capsys,
         caplog,
         [
-            "export", "--dir", str(workspace_dir), "--bundle", "resume", "--format", "pdf",
-            "--target", str(jd_path), "--template", "devops-senior-mgr", "--narrative",
+            "export",
+            "--dir",
+            str(workspace_dir),
+            "--bundle",
+            "resume",
+            "--format",
+            "pdf",
+            "--target",
+            str(jd_path),
+            "--template",
+            "devops-senior-mgr",
+            "--narrative",
         ],
     )
 
@@ -246,8 +280,18 @@ def test_no_provider_configured_error_leaks_nothing(
         capsys,
         caplog,
         [
-            "export", "--dir", str(workspace_dir), "--bundle", "resume", "--format", "pdf",
-            "--target", str(jd_path), "--template", "devops-senior-mgr", "--narrative",
+            "export",
+            "--dir",
+            str(workspace_dir),
+            "--bundle",
+            "resume",
+            "--format",
+            "pdf",
+            "--target",
+            str(jd_path),
+            "--template",
+            "devops-senior-mgr",
+            "--narrative",
         ],
     )
 
@@ -268,7 +312,9 @@ def test_new_vault_passphrase_errors_leak_nothing(
     answers = iter([PASSPHRASE_MARKER, PASSPHRASE_MARKER + "-typo"])
     monkeypatch.setattr(cli.getpass, "getpass", lambda *_a, **_k: next(answers))
 
-    output = _cli_error(capsys, caplog, ["vault", "set-key", "--dir", str(workspace_dir), "--provider", "anthropic"])
+    output = _cli_error(
+        capsys, caplog, ["vault", "set-key", "--dir", str(workspace_dir), "--provider", "anthropic"]
+    )
 
     assert "Passphrases don't match" in output
     api_response = Api().set_llm_key(str(workspace_dir), "", "anthropic", API_KEY_MARKER)
@@ -297,9 +343,13 @@ def _sdk_error_mentioning_key(provider: str) -> Exception:
 @pytest.mark.parametrize(
     ("provider", "client_path", "call"),
     [
-        pytest.param("anthropic", "anthropic.Anthropic", "messages.create", marks=requires_anthropic),
+        pytest.param(
+            "anthropic", "anthropic.Anthropic", "messages.create", marks=requires_anthropic
+        ),
         pytest.param("openai", "openai.OpenAI", "chat.completions.create", marks=requires_openai),
-        pytest.param("gemini", "google.genai.Client", "models.generate_content", marks=requires_gemini),
+        pytest.param(
+            "gemini", "google.genai.Client", "models.generate_content", marks=requires_gemini
+        ),
     ],
 )
 def test_sdk_error_that_echoes_the_key_is_redacted(
@@ -327,11 +377,23 @@ def test_sdk_error_that_echoes_the_key_is_redacted(
             capsys,
             caplog,
             [
-                "export", "--dir", str(workspace_dir), "--bundle", "resume", "--format", "pdf",
-                "--target", str(jd_path), "--template", "devops-senior-mgr", "--narrative",
+                "export",
+                "--dir",
+                str(workspace_dir),
+                "--bundle",
+                "resume",
+                "--format",
+                "pdf",
+                "--target",
+                str(jd_path),
+                "--template",
+                "devops-senior-mgr",
+                "--narrative",
             ],
         )
-        api_response = Api().generate_narrative(str(workspace_dir), "AWS Terraform", PASSPHRASE_MARKER)
+        api_response = Api().generate_narrative(
+            str(workspace_dir), "AWS Terraform", PASSPHRASE_MARKER
+        )
 
     assert "LLM API call failed" in output
     assert "[redacted]" in output

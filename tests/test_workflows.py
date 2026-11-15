@@ -203,9 +203,9 @@ def test_required_checks_are_the_agreed_set_and_include_zizmor() -> None:
 
 def test_every_required_check_is_reported_by_a_pull_request_job() -> None:
     names = {
-        job["name"].replace("${{ matrix.profile }}", profile).replace(
-            "${{ matrix.python-version }}", "3.14"
-        )
+        job["name"]
+        .replace("${{ matrix.profile }}", profile)
+        .replace("${{ matrix.python-version }}", "3.14")
         for path in WORKFLOW_FILES
         if path.name != "release.yml"
         for job in _jobs(path).values()

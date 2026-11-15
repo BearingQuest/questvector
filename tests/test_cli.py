@@ -39,7 +39,9 @@ def test_launch_creates_workspace(tmp_path: Path, capsys: pytest.CaptureFixture[
     assert (workspace_dir / "Capabilities.md").exists()
 
 
-def test_sync_ast_scores_job_description(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_sync_ast_scores_job_description(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     workspace_dir = tmp_path / "ws"
     cli.main(["launch", "--dir", str(workspace_dir)])
     (workspace_dir / "Capabilities.md").write_text(
@@ -78,7 +80,15 @@ def test_sync_ast_unknown_template_returns_error_exit_code(
     jd_path.write_text("Some job description", encoding="utf-8")
 
     exit_code = cli.main(
-        ["sync-ast", "--dir", str(workspace_dir), "--target", str(jd_path), "--template", "nonexistent"]
+        [
+            "sync-ast",
+            "--dir",
+            str(workspace_dir),
+            "--target",
+            str(jd_path),
+            "--template",
+            "nonexistent",
+        ]
     )
 
     assert exit_code == 1
@@ -100,7 +110,8 @@ def test_export_produces_pdf_bundle(tmp_path: Path) -> None:
 def test_template_validate_fix_persists_and_returns_zero(tmp_path: Path) -> None:
     template_path = tmp_path / "bad.yaml"
     template_path.write_text(
-        "categories:\n  - name: a\n    weight: 0.3\n  - name: b\n    weight: 0.3\n", encoding="utf-8"
+        "categories:\n  - name: a\n    weight: 0.3\n  - name: b\n    weight: 0.3\n",
+        encoding="utf-8",
     )
 
     exit_code = cli.main(["template", "validate", str(template_path), "--fix"])
@@ -111,7 +122,8 @@ def test_template_validate_fix_persists_and_returns_zero(tmp_path: Path) -> None
 def test_template_validate_without_fix_returns_one_when_invalid(tmp_path: Path) -> None:
     template_path = tmp_path / "bad.yaml"
     template_path.write_text(
-        "categories:\n  - name: a\n    weight: 0.3\n  - name: b\n    weight: 0.3\n", encoding="utf-8"
+        "categories:\n  - name: a\n    weight: 0.3\n  - name: b\n    weight: 0.3\n",
+        encoding="utf-8",
     )
 
     exit_code = cli.main(["template", "validate", str(template_path)])
@@ -119,7 +131,9 @@ def test_template_validate_without_fix_returns_one_when_invalid(tmp_path: Path) 
     assert exit_code == 1
 
 
-def test_launch_human_readable_output_lists_created_files(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_launch_human_readable_output_lists_created_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     workspace_dir = tmp_path / "ws"
     exit_code = cli.main(["launch", "--dir", str(workspace_dir)])
 
@@ -129,7 +143,9 @@ def test_launch_human_readable_output_lists_created_files(tmp_path: Path, capsys
     assert "Capabilities.md" in out
 
 
-def test_sync_ast_human_readable_output_shows_gaps(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_sync_ast_human_readable_output_shows_gaps(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     workspace_dir = tmp_path / "ws"
     cli.main(["launch", "--dir", str(workspace_dir)])
     jd_path = tmp_path / "jd.txt"
@@ -137,7 +153,15 @@ def test_sync_ast_human_readable_output_shows_gaps(tmp_path: Path, capsys: pytes
     capsys.readouterr()
 
     exit_code = cli.main(
-        ["sync-ast", "--dir", str(workspace_dir), "--target", str(jd_path), "--template", "devops-senior-mgr"]
+        [
+            "sync-ast",
+            "--dir",
+            str(workspace_dir),
+            "--target",
+            str(jd_path),
+            "--template",
+            "devops-senior-mgr",
+        ]
     )
 
     out = capsys.readouterr().out
@@ -192,7 +216,9 @@ def test_vault_set_key_stores_encrypted_key(
     responses = iter(["my-passphrase", "my-passphrase", "sk-my-api-key"])
     monkeypatch.setattr(cli.getpass, "getpass", lambda *_args, **_kwargs: next(responses))
 
-    exit_code = cli.main(["vault", "set-key", "--dir", str(workspace_dir), "--provider", "anthropic"])
+    exit_code = cli.main(
+        ["vault", "set-key", "--dir", str(workspace_dir), "--provider", "anthropic"]
+    )
 
     assert exit_code == 0
     loaded = vault.load_vault(workspace_dir / ".questvector.vault", "my-passphrase")
@@ -217,7 +243,16 @@ def test_vault_set_key_ollama_needs_no_api_key_prompt(
     monkeypatch.setattr(cli.getpass, "getpass", _getpass)
 
     exit_code = cli.main(
-        ["vault", "set-key", "--dir", str(workspace_dir), "--provider", "ollama", "--model", "llama3.1"]
+        [
+            "vault",
+            "set-key",
+            "--dir",
+            str(workspace_dir),
+            "--provider",
+            "ollama",
+            "--model",
+            "llama3.1",
+        ]
     )
 
     assert exit_code == 0
@@ -229,13 +264,24 @@ def test_vault_set_key_ollama_needs_no_api_key_prompt(
     assert loaded.llm_timeout is None
 
 
-def test_vault_set_key_stores_ollama_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_vault_set_key_stores_ollama_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     workspace_dir = tmp_path / "ws"
     workspace_dir.mkdir()
     monkeypatch.setattr(cli.getpass, "getpass", lambda *_args, **_kwargs: "my-passphrase")
 
     exit_code = cli.main(
-        ["vault", "set-key", "--dir", str(workspace_dir), "--provider", "ollama", "--timeout", "600"]
+        [
+            "vault",
+            "set-key",
+            "--dir",
+            str(workspace_dir),
+            "--provider",
+            "ollama",
+            "--timeout",
+            "600",
+        ]
     )
 
     assert exit_code == 0
@@ -268,7 +314,9 @@ def test_vault_set_key_new_vault_rejects_mismatched_confirmation(
     responses = iter(["my-passphrase", "my-passphrse"])
     monkeypatch.setattr(cli.getpass, "getpass", lambda *_args, **_kwargs: next(responses))
 
-    exit_code = cli.main(["vault", "set-key", "--dir", str(workspace_dir), "--provider", "anthropic"])
+    exit_code = cli.main(
+        ["vault", "set-key", "--dir", str(workspace_dir), "--provider", "anthropic"]
+    )
 
     assert exit_code == 1
     assert "Passphrases don't match; nothing was saved" in capsys.readouterr().err
@@ -290,7 +338,9 @@ def test_vault_set_key_new_vault_rejects_empty_passphrase(
     assert not (workspace_dir / ".questvector.vault").exists()
 
 
-def test_vault_set_key_existing_vault_asks_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_vault_set_key_existing_vault_asks_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     workspace_dir = tmp_path / "ws"
     workspace_dir.mkdir()
     vault.save_vault(workspace_dir / ".questvector.vault", "my-passphrase", vault.VaultData())
@@ -330,4 +380,6 @@ def test_vault_set_key_unknown_provider_rejected_by_argparse(tmp_path: Path) -> 
     workspace_dir.mkdir()
 
     with pytest.raises(SystemExit):
-        cli.main(["vault", "set-key", "--dir", str(workspace_dir), "--provider", "not-a-real-provider"])
+        cli.main(
+            ["vault", "set-key", "--dir", str(workspace_dir), "--provider", "not-a-real-provider"]
+        )

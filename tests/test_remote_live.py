@@ -110,7 +110,9 @@ def test_failure_message_never_shows_the_key(monkeypatch: pytest.MonkeyPatch) ->
         raise RuntimeError(f"rejected credentials {key}")
 
     monkeypatch.setattr(
-        sys.modules[__name__], "create_narrative_generator", lambda *_a, **_k: SimpleNamespace(generate=_raise)
+        sys.modules[__name__],
+        "create_narrative_generator",
+        lambda *_a, **_k: SimpleNamespace(generate=_raise),
     )
 
     with pytest.raises(pytest.fail.Exception) as excinfo:
@@ -137,5 +139,7 @@ def test_remote_provider_generates_narrative_from_synthetic_dossier(provider: st
     narrative = _generate_live(provider, model)
 
     if not narrative.strip():
-        pytest.fail(f"live {provider} call with model '{model}' returned an empty narrative", pytrace=False)
+        pytest.fail(
+            f"live {provider} call with model '{model}' returned an empty narrative", pytrace=False
+        )
     print_narrative(provider, model, narrative)
