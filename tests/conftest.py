@@ -74,10 +74,7 @@ def sample_chronology_md() -> str:
 @pytest.fixture()
 def sample_impact_md() -> str:
     """Return sample ``Impact.md`` content for parser tests."""
-    return (
-        "## Cost Optimization\n"
-        "- Cut monthly AWS cost from $27K to $7K\n"
-    )
+    return "## Cost Optimization\n- Cut monthly AWS cost from $27K to $7K\n"
 
 
 @pytest.fixture()

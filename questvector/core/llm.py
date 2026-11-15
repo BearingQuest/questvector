@@ -366,7 +366,9 @@ class AnthropicNarrativeGenerator:
             )
         except anthropic.APIError as exc:
             if isinstance(exc, anthropic.NotFoundError) and exc.type == "not_found_error":
-                raise _model_not_found_error("anthropic", self._model, str(exc), self._api_key) from exc
+                raise _model_not_found_error(
+                    "anthropic", self._model, str(exc), self._api_key
+                ) from exc
             raise LLMError(
                 f"LLM API call failed: {_redact(str(exc), self._api_key)}",
                 context={"model": self._model},
@@ -456,7 +458,9 @@ class OpenAINarrativeGenerator:
             )
         except openai.OpenAIError as exc:
             if isinstance(exc, openai.NotFoundError) and exc.code == "model_not_found":
-                raise _model_not_found_error("openai", self._model, str(exc), self._api_key) from exc
+                raise _model_not_found_error(
+                    "openai", self._model, str(exc), self._api_key
+                ) from exc
             raise LLMError(
                 f"LLM API call failed: {_redact(str(exc), self._api_key)}",
                 context={"model": self._model},
@@ -531,8 +535,14 @@ class GeminiNarrativeGenerator:
                 ),
             )
         except genai_errors.APIError as exc:
-            if isinstance(exc, genai_errors.ClientError) and exc.code == 404 and exc.status == "NOT_FOUND":
-                raise _model_not_found_error("gemini", self._model, str(exc), self._api_key) from exc
+            if (
+                isinstance(exc, genai_errors.ClientError)
+                and exc.code == 404
+                and exc.status == "NOT_FOUND"
+            ):
+                raise _model_not_found_error(
+                    "gemini", self._model, str(exc), self._api_key
+                ) from exc
             raise LLMError(
                 f"LLM API call failed: {_redact(str(exc), self._api_key)}",
                 context={"model": self._model},
@@ -638,7 +648,8 @@ class OllamaNarrativeGenerator:
         context: dict[str, object] = {"model": self._model, "host": self._host}
         try:
             # The scheme is limited to http(s) in __init__.
-            with urllib.request.urlopen(request, timeout=self._timeout) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+            with urllib.request.urlopen(request, timeout=self._timeout) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
         # HTTPError subclasses URLError, so it must be caught first: a 404
         # means the server answered, not that it's unreachable.
@@ -651,7 +662,9 @@ class OllamaNarrativeGenerator:
                     f"{self._host} -- run 'ollama pull {self._model}'",
                     context=context,
                 ) from exc
-            raise LLMError(f"Ollama rejected the request (HTTP {exc.code}): {detail}", context=context) from exc
+            raise LLMError(
+                f"Ollama rejected the request (HTTP {exc.code}): {detail}", context=context
+            ) from exc
         except urllib.error.URLError as exc:
             if isinstance(exc.reason, TimeoutError):
                 raise self._timeout_error(context) from exc
@@ -664,7 +677,9 @@ class OllamaNarrativeGenerator:
         except TimeoutError as exc:
             raise self._timeout_error(context) from exc
         except json.JSONDecodeError as exc:
-            raise LLMError("Ollama returned a response that could not be parsed", context=context) from exc
+            raise LLMError(
+                "Ollama returned a response that could not be parsed", context=context
+            ) from exc
 
         text = body.get("response")
         if not text:
@@ -714,7 +729,7 @@ def _ollama_error_detail(exc: urllib.error.HTTPError) -> str:
     """
     try:
         detail = json.loads(exc.read().decode("utf-8")).get("error")
-    except (OSError, ValueError, AttributeError):
+    except OSError, ValueError, AttributeError:
         detail = None
     return str(detail) if detail else str(exc.reason)
 

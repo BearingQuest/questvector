@@ -42,11 +42,15 @@ def narrative_prompt() -> str:
     dossier = parse_dossier(FIXTURES)
     jd_text = (FIXTURES / "job_description.txt").read_text(encoding="utf-8")
     job_description = matcher.parse_job_description(jd_text, source="job_description.txt")
-    template_file = resources.files("questvector.data.starter_templates") / "devops-senior-mgr.qv-mission.yaml"
+    template_file = (
+        resources.files("questvector.data.starter_templates") / "devops-senior-mgr.qv-mission.yaml"
+    )
     with resources.as_file(template_file) as template_path:
         template = load_template(template_path)
     dossier_context = "\n".join(c.text for c in dossier.capabilities[:CAPABILITIES_SENT])
-    return build_narrative_prompt(dossier_context, job_description.raw_text, tone_style=template.tone_style)
+    return build_narrative_prompt(
+        dossier_context, job_description.raw_text, tone_style=template.tone_style
+    )
 
 
 def print_narrative(provider: str, model: str, narrative: str) -> None:

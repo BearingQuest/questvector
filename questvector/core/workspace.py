@@ -15,7 +15,9 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass, field
-from importlib import resources  # nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2 (requires Python 3.14)
+
+# nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2 (requires Python 3.14)
+from importlib import resources
 from pathlib import Path
 from types import TracebackType
 
@@ -36,17 +38,12 @@ _LOCK_STALE_SECONDS = 300  # A lock older than this is assumed abandoned.
 
 _DOSSIER_STUBS: dict[str, str] = {
     CAPABILITIES_FILENAME: (
-        "## Uncategorized\n"
-        "- Add your capabilities here, grouped under '## Domain Name' headings.\n"
+        "## Uncategorized\n- Add your capabilities here, grouped under '## Domain Name' headings.\n"
     ),
     CHRONOLOGY_FILENAME: (
-        "## Company — Role (Start–End)\n"
-        "- Add responsibilities and achievements as bullet points.\n"
+        "## Company — Role (Start–End)\n- Add responsibilities and achievements as bullet points.\n"
     ),
-    IMPACT_FILENAME: (
-        "## Impact Summary\n"
-        "- Add quantified impact statements as bullet points.\n"
-    ),
+    IMPACT_FILENAME: ("## Impact Summary\n- Add quantified impact statements as bullet points.\n"),
 }
 
 _COMMUNITY_TEMPLATES_README = (

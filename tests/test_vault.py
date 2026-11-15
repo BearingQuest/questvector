@@ -96,7 +96,11 @@ def test_from_dict_migrates_legacy_single_key_schema() -> None:
 
 def test_load_vault_wrong_passphrase_raises_vault_error(tmp_path: Path) -> None:
     path = tmp_path / "vault.dat"
-    save_vault(path, "correct-horse", VaultData(llm_provider="anthropic", llm_api_keys={"anthropic": "secret"}))
+    save_vault(
+        path,
+        "correct-horse",
+        VaultData(llm_provider="anthropic", llm_api_keys={"anthropic": "secret"}),
+    )
 
     with pytest.raises(VaultError):
         load_vault(path, "wrong-passphrase")
@@ -116,7 +120,9 @@ def test_load_vault_corrupted_json_raises_vault_error(tmp_path: Path) -> None:
 
 def test_load_vault_corrupted_ciphertext_raises_vault_error(tmp_path: Path) -> None:
     path = tmp_path / "vault.dat"
-    save_vault(path, "pass", VaultData(llm_provider="anthropic", llm_api_keys={"anthropic": "secret"}))
+    save_vault(
+        path, "pass", VaultData(llm_provider="anthropic", llm_api_keys={"anthropic": "secret"})
+    )
 
     # Deterministically flip one byte of the decoded ciphertext so the GCM
     # authentication tag can no longer verify, regardless of what random
@@ -270,9 +276,13 @@ def test_header_is_authenticated_as_associated_data(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "tamper",
     [
-        pytest.param(lambda e: e["kdf"].__setitem__("iterations", e["kdf"]["iterations"] + 1), id="iterations"),
         pytest.param(
-            lambda e: e["kdf"].__setitem__("salt", base64.b64encode(b"\x00" * 16).decode("ascii")), id="salt"
+            lambda e: e["kdf"].__setitem__("iterations", e["kdf"]["iterations"] + 1),
+            id="iterations",
+        ),
+        pytest.param(
+            lambda e: e["kdf"].__setitem__("salt", base64.b64encode(b"\x00" * 16).decode("ascii")),
+            id="salt",
         ),
         pytest.param(lambda e: e["kdf"].__setitem__("name", "pbkdf2-hmac-sha512"), id="kdf-name"),
         pytest.param(lambda e: e.__setitem__("version", 1), id="version"),
@@ -312,7 +322,9 @@ def test_header_whitespace_and_key_order_do_not_matter(tmp_path: Path) -> None:
         (True, "corrupted or not a QuestVector vault"),
     ],
 )
-def test_load_rejects_unknown_or_malformed_versions(tmp_path: Path, version: object, message: str) -> None:
+def test_load_rejects_unknown_or_malformed_versions(
+    tmp_path: Path, version: object, message: str
+) -> None:
     path = tmp_path / "vault.dat"
     save_vault(path, "pass", VaultData())
     envelope = _envelope(path)
@@ -338,8 +350,13 @@ def test_load_rejects_missing_version(tmp_path: Path) -> None:
     "tamper",
     [
         pytest.param(lambda e: e["kdf"].__setitem__("salt", "not base64!"), id="salt-not-base64"),
-        pytest.param(lambda e: e["kdf"].__setitem__("salt", base64.b64encode(b"short").decode()), id="salt-length"),
-        pytest.param(lambda e: e.__setitem__("nonce", base64.b64encode(b"short").decode()), id="nonce-length"),
+        pytest.param(
+            lambda e: e["kdf"].__setitem__("salt", base64.b64encode(b"short").decode()),
+            id="salt-length",
+        ),
+        pytest.param(
+            lambda e: e.__setitem__("nonce", base64.b64encode(b"short").decode()), id="nonce-length"
+        ),
         pytest.param(lambda e: e.__delitem__("kdf"), id="kdf-missing"),
         pytest.param(lambda e: e.__setitem__("kdf", ["pbkdf2-hmac-sha256"]), id="kdf-not-object"),
     ],

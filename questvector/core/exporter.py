@@ -77,16 +77,21 @@ def export_bundle(
     _validate_format(fmt)
     try:
         if fmt == "pdf":
-            _export_pdf(dossier, output_path, match_result=match_result, narrative=narrative, title=title)
+            _export_pdf(
+                dossier, output_path, match_result=match_result, narrative=narrative, title=title
+            )
         else:
-            _export_docx(dossier, output_path, match_result=match_result, narrative=narrative, title=title)
+            _export_docx(
+                dossier, output_path, match_result=match_result, narrative=narrative, title=title
+            )
     except ExportError:
         raise
     except Exception as exc:  # noqa: BLE001 - deliberately broad: wrap any
         # third-party rendering-library failure into our own exception type
         # so callers only ever need to catch QuestVectorError subclasses.
         raise ExportError(
-            f"Failed to export {fmt} bundle: {exc}", context={"output_path": str(output_path), "format": fmt}
+            f"Failed to export {fmt} bundle: {exc}",
+            context={"output_path": str(output_path), "format": fmt},
         ) from exc
     return output_path
 
@@ -121,7 +126,9 @@ def _export_pdf(
         story.append(Spacer(1, 0.2 * inch))
 
     if match_result is not None:
-        story.append(Paragraph(f"G-Force Match Score: {match_result.g_force_score:.1f}%", heading_style))
+        story.append(
+            Paragraph(f"G-Force Match Score: {match_result.g_force_score:.1f}%", heading_style)
+        )
         table_data = [["Category", "Weight", "Coverage"]]
         for score in match_result.category_scores:
             table_data.append([score.name, f"{score.weight:.2f}", f"{score.coverage * 100:.0f}%"])

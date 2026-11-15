@@ -138,27 +138,21 @@ def test_load_template_category_keywords_not_a_list_raises(tmp_path: Path) -> No
 
 
 def test_validate_template_within_tolerance_is_valid() -> None:
-    template = MissionTemplate(
-        "t", "T", (TemplateCategory("a", 0.5), TemplateCategory("b", 0.5))
-    )
+    template = MissionTemplate("t", "T", (TemplateCategory("a", 0.5), TemplateCategory("b", 0.5)))
     _, result = validate_template(template)
     assert result.valid is True
     assert result.fixed is False
 
 
 def test_validate_template_out_of_tolerance_without_fix_is_invalid() -> None:
-    template = MissionTemplate(
-        "t", "T", (TemplateCategory("a", 0.3), TemplateCategory("b", 0.3))
-    )
+    template = MissionTemplate("t", "T", (TemplateCategory("a", 0.3), TemplateCategory("b", 0.3)))
     _, result = validate_template(template, fix=False)
     assert result.valid is False
     assert result.fixed is False
 
 
 def test_validate_template_with_fix_rescales_to_one() -> None:
-    template = MissionTemplate(
-        "t", "T", (TemplateCategory("a", 0.3), TemplateCategory("b", 0.3))
-    )
+    template = MissionTemplate("t", "T", (TemplateCategory("a", 0.3), TemplateCategory("b", 0.3)))
     fixed, result = validate_template(template, fix=True)
     assert result.valid is True
     assert result.fixed is True
@@ -244,7 +238,9 @@ def test_load_template_metadata_not_a_mapping_raises(tmp_path: Path) -> None:
 
 
 def test_load_template_jd_analysis_not_a_mapping_raises(tmp_path: Path) -> None:
-    path = _write(tmp_path, "categories:\n  - name: a\n    weight: 1.0\njd_analysis: not-a-mapping\n")
+    path = _write(
+        tmp_path, "categories:\n  - name: a\n    weight: 1.0\njd_analysis: not-a-mapping\n"
+    )
     with pytest.raises(ValidationError):
         load_template(path)
 
@@ -268,7 +264,9 @@ def test_load_template_gap_coverage_threshold_non_numeric_raises(tmp_path: Path)
 
 
 def test_load_template_output_formatting_not_a_mapping_raises(tmp_path: Path) -> None:
-    path = _write(tmp_path, "categories:\n  - name: a\n    weight: 1.0\noutput_formatting: not-a-mapping\n")
+    path = _write(
+        tmp_path, "categories:\n  - name: a\n    weight: 1.0\noutput_formatting: not-a-mapping\n"
+    )
     with pytest.raises(ValidationError):
         load_template(path)
 
@@ -332,8 +330,12 @@ def test_find_template_file_searches_dirs_in_order(tmp_path: Path) -> None:
     community = tmp_path / "community"
     starter.mkdir()
     community.mkdir()
-    (starter / "role-a.qv-mission.yaml").write_text("categories:\n  - name: a\n    weight: 1.0\n", encoding="utf-8")
-    (community / "role-b.qv-mission.yaml").write_text("categories:\n  - name: b\n    weight: 1.0\n", encoding="utf-8")
+    (starter / "role-a.qv-mission.yaml").write_text(
+        "categories:\n  - name: a\n    weight: 1.0\n", encoding="utf-8"
+    )
+    (community / "role-b.qv-mission.yaml").write_text(
+        "categories:\n  - name: b\n    weight: 1.0\n", encoding="utf-8"
+    )
 
     found_a = find_template_file([starter, community], "role-a")
     found_b = find_template_file([starter, community], "role-b")

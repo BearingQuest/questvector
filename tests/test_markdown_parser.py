@@ -30,7 +30,9 @@ def test_tokenize_empty_string_returns_empty_set() -> None:
     assert tokenize("") == frozenset()
 
 
-def test_parse_capabilities_groups_bullets_under_domain(tmp_path: Path, sample_capabilities_md: str) -> None:
+def test_parse_capabilities_groups_bullets_under_domain(
+    tmp_path: Path, sample_capabilities_md: str
+) -> None:
     path = tmp_path / "Capabilities.md"
     path.write_text(sample_capabilities_md, encoding="utf-8")
 
@@ -111,7 +113,9 @@ def test_parse_dossier_tolerates_missing_files(tmp_path: Path, sample_capabiliti
     assert dossier.impact == ()
 
 
-def test_parse_dossier_raises_if_present_file_is_malformed(tmp_path: Path, sample_capabilities_md: str) -> None:
+def test_parse_dossier_raises_if_present_file_is_malformed(
+    tmp_path: Path, sample_capabilities_md: str
+) -> None:
     (tmp_path / "Capabilities.md").write_text(sample_capabilities_md, encoding="utf-8")
     (tmp_path / "Chronology.md").write_text("", encoding="utf-8")
 

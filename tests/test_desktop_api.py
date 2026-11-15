@@ -62,7 +62,9 @@ def test_sync_ast_returns_match_result(tmp_path: Path) -> None:
         "## Cloud\n- AWS Terraform Kubernetes CI/CD\n", encoding="utf-8"
     )
 
-    response = api.sync_ast(str(workspace_dir), "Looking for AWS Terraform Kubernetes", "devops-senior-mgr")
+    response = api.sync_ast(
+        str(workspace_dir), "Looking for AWS Terraform Kubernetes", "devops-senior-mgr"
+    )
 
     assert response["ok"] is True
     assert "g_force_score" in response["data"]

@@ -113,7 +113,8 @@ class Api:
                         {"domain": c.domain, "text": c.text} for c in dossier.capabilities
                     ],
                     "chronology": [
-                        {"heading": e.heading, "bullets": list(e.bullets)} for e in dossier.chronology
+                        {"heading": e.heading, "bullets": list(e.bullets)}
+                        for e in dossier.chronology
                     ],
                     "impact": [
                         {"heading": s.heading, "bullets": list(s.bullets)} for s in dossier.impact
@@ -272,9 +273,7 @@ class Api:
         ]
         return _ok({"providers": providers})
 
-    def generate_narrative(
-        self, dir_path: str, jd_text: str, passphrase: str
-    ) -> dict[str, Any]:
+    def generate_narrative(self, dir_path: str, jd_text: str, passphrase: str) -> dict[str, Any]:
         """Generate an LLM narrative summary for the current dossier + JD.
 
         This is an explicit, user-triggered UI action rather than an

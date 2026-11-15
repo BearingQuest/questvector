@@ -28,13 +28,20 @@ sys.modules["vault_v1_1_0"] = old
 spec.loader.exec_module(old)
 
 out = Path("tests/fixtures/vault")
-old.save_vault(out / "v1-vault.json", "qv-fixture-v1-passphrase", old.VaultData(
-    llm_provider="anthropic",
-    llm_api_keys={"anthropic": "QVFIXTURE-v1-not-a-real-key"},
-    session_cache={"a": 1},
-))
-old.save_vault(out / "v1-vault-empty-passphrase.json", "",
-               old.VaultData(llm_provider="ollama", llm_model="llama3.1"))
+old.save_vault(
+    out / "v1-vault.json",
+    "qv-fixture-v1-passphrase",
+    old.VaultData(
+        llm_provider="anthropic",
+        llm_api_keys={"anthropic": "QVFIXTURE-v1-not-a-real-key"},
+        session_cache={"a": 1},
+    ),
+)
+old.save_vault(
+    out / "v1-vault-empty-passphrase.json",
+    "",
+    old.VaultData(llm_provider="ollama", llm_model="llama3.1"),
+)
 ```
 
 Don't regenerate them with the current code: that writes format 2.

@@ -117,7 +117,9 @@ def _score_category(
     )
 
 
-def run_match(dossier: Dossier, job_description: JobDescription, template: MissionTemplate) -> MatchResult:
+def run_match(
+    dossier: Dossier, job_description: JobDescription, template: MissionTemplate
+) -> MatchResult:
     """Run the Micro-Diff Matching Engine and compute a G-Force score.
 
     Args:
@@ -135,7 +137,8 @@ def run_match(dossier: Dossier, job_description: JobDescription, template: Missi
     """
     if not template.categories:
         raise MatchEngineError(
-            "Mission template has no categories to score", context={"template_id": template.template_id}
+            "Mission template has no categories to score",
+            context={"template_id": template.template_id},
         )
 
     dossier_keywords = dossier.all_keywords()
@@ -164,7 +167,10 @@ def run_match(dossier: Dossier, job_description: JobDescription, template: Missi
         gaps.update(score.gap_keywords)
         if score.weight >= MATCH_RED_FLAG_WEIGHT_THRESHOLD and score.coverage == 0.0:
             red_flags.append(f"No dossier coverage for high-weight category '{score.name}'")
-        if template.gap_coverage_threshold is not None and score.coverage < template.gap_coverage_threshold:
+        if (
+            template.gap_coverage_threshold is not None
+            and score.coverage < template.gap_coverage_threshold
+        ):
             weak_categories.append(score.name)
 
     jd_text_lower = job_description.raw_text.lower()

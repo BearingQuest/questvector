@@ -321,7 +321,9 @@ def save_vault(path: Path, passphrase: str, data: VaultData) -> None:
     try:
         _write_atomically(path, json.dumps(envelope))
     except OSError as exc:
-        raise VaultError(f"Could not write vault file: {path}", context={"path": str(path)}) from exc
+        raise VaultError(
+            f"Could not write vault file: {path}", context={"path": str(path)}
+        ) from exc
     _restrict_permissions(path)
 
 
@@ -391,8 +393,10 @@ def load_vault(path: Path, passphrase: str) -> VaultData:
             )
         # Checked before deriving anything, so a crafted count can't stall unlock.
         minimum, maximum = _MIN_KDF_ITERATIONS, _MAX_KDF_ITERATIONS
-        if isinstance(iterations, bool) or not isinstance(iterations, int) or not (
-            minimum <= iterations <= maximum
+        if (
+            isinstance(iterations, bool)
+            or not isinstance(iterations, int)
+            or not (minimum <= iterations <= maximum)
         ):
             raise VaultError(
                 f"Vault key-derivation iteration count must be between {minimum:,} and "
@@ -419,9 +423,7 @@ def load_vault(path: Path, passphrase: str) -> VaultData:
     return VaultData.from_dict(decoded)
 
 
-def update_vault(
-    path: Path, passphrase: str, mutate: Callable[[VaultData], None]
-) -> VaultData:
+def update_vault(path: Path, passphrase: str, mutate: Callable[[VaultData], None]) -> VaultData:
     """Load a vault (or start empty if none exists), mutate it, and save it.
 
     Saving always writes format 2, so this is where a format 1 vault is
