@@ -5,6 +5,7 @@ name: "Security"
 #   - gitleaks:  secrets anywhere in the git history.
 #   - semgrep:   static analysis with the p/default rule set.
 #   - pip-audit: known vulnerabilities in the versions locked in uv.lock.
+#   - zizmor:    static analysis of the workflows in .github.
 # gitleaks and Semgrep also upload SARIF to the Security tab. Each scan keeps
 # its exit code, so a finding fails the check and blocks the merge.
 # CodeQL runs separately through GitHub's default setup, not a workflow file.
@@ -29,8 +30,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      contents: read
-      security-events: write
+      contents: read # check out the repository; a job block replaces the workflow grant
+      security-events: write # upload the SARIF report to code scanning
     env:
       GITLEAKS_VERSION: 8.30.1
       GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
@@ -65,16 +66,23 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: read
-      security-events: write
-    container:
-      image: semgrep/semgrep:1.179.0@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b
+      contents: read # check out the repository; a job block replaces the workflow grant
+      security-events: write # upload the SARIF report to code scanning
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.1"
+          enable-cache: false
+      # The semgrep CLI from PyPI. --exclude-newer is the release date plus one
+      # day, so uvx resolves semgrep's dependencies to a fixed snapshot. The
+      # p/default rules are fetched at run time and change over time.
       - name: Scan
-        run: semgrep scan --config p/default --error --metrics=off --sarif-output=semgrep.sarif
+        run: >-
+          uvx --exclude-newer 2026-10-30 semgrep@1.183.0 scan
+          --config p/default --error --metrics=off --sarif-output=semgrep.sarif
       - name: Drop inline-suppressed results
         # Code scanning ignores SARIF suppressions, so approved inline skips would open alerts.
         if: always() && hashFiles('semgrep.sarif') != ''
@@ -122,3 +130,19 @@ jobs:
         run: >-
           uv run --locked --only-group audit
           pip-audit --strict --disable-pip --no-deps -r audit-requirements.txt
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.1"
+          enable-cache: false
+      # Fails on any finding. --exclude-newer is the release date plus one day.
+      - name: Audit the workflows
+        run: uvx --exclude-newer 2026-11-03 zizmor@1.32.0 .github

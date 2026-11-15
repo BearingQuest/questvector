@@ -1,16 +1,19 @@
 name: "Release"
 
-# Publishes a GitHub Release when a v* tag is pushed (ADR-0014). Nothing else
-# triggers it: no pull requests, no branch pushes. Its jobs are therefore not
-# required checks and are not listed in .github/rulesets/main.json.
-# Only the repository admin can create v* tags (.github/rulesets/tags.json).
+# Builds a DRAFT GitHub Release when a v* tag is pushed (ADR-0014, ADR-0020).
+# Nothing else triggers it: no pull requests, no branch pushes. Its jobs are
+# therefore not required checks and are not listed in
+# .github/rulesets/main.json. The owner creates v* tags
+# (.github/rulesets/release-tags.json protects them from update and deletion).
+# This workflow never publishes: the owner publishes the draft by hand.
 #
 # Two jobs, so no repository code runs with write permissions:
 #   - build:   read-only. Tests, checks the tag, builds the wheel and sdist,
-#              and writes SHA256SUMS.
-#   - release: no checkout. Creates a draft release, attests the files, and
-#              publishes the draft as its last step. Releases are immutable
-#              once published, so a failure anywhere leaves at most a draft.
+#              and writes SHA256SUMS. No cache, so nothing poisoned can reach
+#              a release build.
+#   - release: no checkout. Attests the files, then creates the draft.
+#              Releases are immutable once published, so the owner checks the
+#              draft before publishing it.
 
 on:
   push:
@@ -28,8 +31,6 @@ jobs:
     name: "Build and test"
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    permissions:
-      contents: read
 
     steps:
       # Full history, so the next step can check the tag is on main.
@@ -51,8 +52,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.1"
-          enable-cache: true
-          cache-dependency-glob: uv.lock
+          enable-cache: false
 
       - name: Install QuestVector
         run: uv sync --locked --all-extras
@@ -126,14 +126,14 @@ jobs:
           retention-days: 1
 
   release:
-    name: "Publish release"
+    name: "Create draft release"
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write
-      id-token: write
-      attestations: write
+      contents: write # create the draft release
+      id-token: write # OIDC token for the Sigstore signing certificate
+      attestations: write # store the build-provenance attestations
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
@@ -144,18 +144,8 @@ jobs:
         with:
           name: release-files
 
-      # A draft stays private and can still be deleted. --verify-tag stops gh
-      # from creating a tag that doesn't exist. --prerelease stays while the
-      # README banner says proof of concept (backlog item 1's exit condition).
-      - name: Create draft release
-        run: >-
-          gh release create "$GITHUB_REF_NAME"
-          dist/*.whl dist/*.tar.gz dist/SHA256SUMS
-          --draft --verify-tag --prerelease
-          --title "QuestVector ${GITHUB_REF_NAME#v}"
-          --notes-file notes.md
-
       # No predicate input, so the action writes SLSA build provenance.
+      # Attested before the draft exists, so a draft never lacks attestations.
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
@@ -163,6 +153,13 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
 
-      # The only step that publishes. Must stay last.
-      - name: Publish release
-        run: gh release edit "$GITHUB_REF_NAME" --draft=false
+      # Draft only: the owner publishes it by hand. --verify-tag stops gh from
+      # creating a tag that doesn't exist. --prerelease stays while the README
+      # banner says proof of concept (backlog item 1's exit condition).
+      - name: Create draft release
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          dist/*.whl dist/*.tar.gz dist/SHA256SUMS
+          --draft --verify-tag --prerelease
+          --title "QuestVector ${GITHUB_REF_NAME#v}"
+          --notes-file notes.md

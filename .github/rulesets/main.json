@@ -30,7 +30,7 @@
       "type": "required_status_checks",
       "parameters": {
         "do_not_enforce_on_create": false,
-        "strict_required_status_checks_policy": false,
+        "strict_required_status_checks_policy": true,
         "required_status_checks": [
           { "context": "pytest (full, Python 3.14)", "integration_id": 15368 },
           { "context": "pytest (minimal, Python 3.14)", "integration_id": 15368 },
@@ -38,7 +38,8 @@
           { "context": "Validate mission templates", "integration_id": 15368 },
           { "context": "gitleaks", "integration_id": 15368 },
           { "context": "semgrep", "integration_id": 15368 },
-          { "context": "pip-audit", "integration_id": 15368 }
+          { "context": "pip-audit", "integration_id": 15368 },
+          { "context": "zizmor", "integration_id": 15368 }
         ]
       }
     },

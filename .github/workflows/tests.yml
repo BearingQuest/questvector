@@ -50,8 +50,10 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Install QuestVector
+        env:
+          PROFILE: ${{ matrix.profile }}
         run: |
-          if [ "${{ matrix.profile }}" = "full" ]; then
+          if [ "$PROFILE" = "full" ]; then
             uv sync --locked --all-extras
           else
             uv sync --locked
@@ -61,8 +63,10 @@ jobs:
       # The minimal install skips the 16 SDK tests, so its coverage sits near
       # the floor by design; its job is to prove the skip path works.
       - name: Run tests with coverage
+        env:
+          PROFILE: ${{ matrix.profile }}
         run: |
-          if [ "${{ matrix.profile }}" = "full" ]; then FLOOR=""; else FLOOR="--cov-fail-under=0"; fi
+          if [ "$PROFILE" = "full" ]; then FLOOR=""; else FLOOR="--cov-fail-under=0"; fi
           uv run --no-sync pytest --cov=questvector --cov-report=term-missing --cov-report=xml \
                  --junitxml=pytest-results.xml $FLOOR
 
