@@ -15,9 +15,9 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass, field
-from importlib import (
-    resources,
-)  # nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2 (requires Python 3.14)
+
+# nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2 (requires Python 3.14)
+from importlib import resources
 from pathlib import Path
 from types import TracebackType
 

@@ -648,9 +648,8 @@ class OllamaNarrativeGenerator:
         context: dict[str, object] = {"model": self._model, "host": self._host}
         try:
             # The scheme is limited to http(s) in __init__.
-            with (
-                urllib.request.urlopen(request, timeout=self._timeout) as resp
-            ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+            with urllib.request.urlopen(request, timeout=self._timeout) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
         # HTTPError subclasses URLError, so it must be caught first: a 404
         # means the server answered, not that it's unreachable.
