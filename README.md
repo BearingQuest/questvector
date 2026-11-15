@@ -116,7 +116,7 @@ Matching is by keyword, so use the terms a job description would use (for exampl
 The test tools come with the contributor setup (uv; see [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)):
 ```bash
 uv sync --all-extras
-uv run pytest                                   # 259 tests
+uv run pytest                                   # 289 tests
 uv run pytest --cov=questvector --cov-report=term-missing
 ```
 24 of the tests exercise the cloud AI providers and need their SDKs installed (`[llm]`); without them those tests skip with the reason shown. Opt-in live tests run against a local Ollama server and against remote providers; they're skipped unless you turn them on (see `docs/DEVELOPMENT.md`). GitHub Actions runs the suite, type checks, and lint on every pull request. Linting, type checks, and the full contributor workflow are in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).

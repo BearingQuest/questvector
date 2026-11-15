@@ -1,6 +1,7 @@
 # 0014. Release files published to GitHub Releases
 
-- **Status:** Accepted
+- **Status:** Accepted; the auto-publish step and the tag-ruleset
+  restrictions are superseded by [0020](0020-owner-publishes-releases.md)
 - **Date:** 2026-10-28
 
 ## Context

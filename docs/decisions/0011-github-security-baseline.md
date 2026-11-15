@@ -1,7 +1,8 @@
 # 0011. GitHub security baseline modeled on risk-trainer
 
 - **Status:** Accepted; the pip-audit approach and pytest check names are
-  superseded by [0013](0013-python-3-14-uv-lock.md)
+  superseded by [0013](0013-python-3-14-uv-lock.md); the Semgrep container
+  and the check list are amended by [0021](0021-ci-baseline-zizmor-and-hardening.md)
 - **Date:** 2026-10-18
 
 ## Context

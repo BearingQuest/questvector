@@ -60,7 +60,7 @@ change the pin, and check `uv build` still succeeds with no warnings.
 Run all of these before opening a pull request:
 
 ```bash
-uv run pytest                                     # 259 tests: 255 run, 4 live tests skipped (24 more skip without [llm])
+uv run pytest                                     # 289 tests: 285 run, 4 live tests skipped (24 more skip without [llm])
 uv run pytest --cov=questvector                   # fails below 90% line coverage
 uv run mypy questvector                           # type checks; expect "no issues found"
 uv run pyflakes questvector tests                 # lint; expect no output
@@ -75,8 +75,9 @@ What CI runs (`.github/workflows/`). Every job installs with uv from
 - **Template validation** (`template-validation.yml`), on every pull
   request and push to `main`.
 - **Security** (`security.yml`), on every pull request and push to `main`:
-  gitleaks over the git history, Semgrep with the `p/default` rules, and
-  pip-audit over every package in `uv.lock`. gitleaks and Semgrep findings
+  gitleaks over the git history, Semgrep (run with `uvx`) with the
+  `p/default` rules, pip-audit over every package in `uv.lock`, and zizmor
+  over the workflows in `.github`. gitleaks and Semgrep findings
   also appear on the repository's Security tab.
 - **CodeQL**, through GitHub's default setup (repository settings, not a
   workflow file).
@@ -91,7 +92,10 @@ can't merge until they pass, and it merges by squash only.
 `tests/test_workflows.py` checks every workflow pins its actions to a
 commit SHA with a version comment and checks out with
 `persist-credentials: false`, and that `release.yml` keeps its tag-only
-trigger, permissions, and draft-then-publish order.
+trigger, permissions and no cache, and that it creates a draft and never
+publishes it; that every permission grant has a comment; that no workflow
+expands `${{ }}` inside a `run` script; and that `main.json` requires the
+agreed checks, zizmor among them.
 
 The ruleset lives in `.github/rulesets/main.json`. Renaming, adding, or
 removing a CI job that runs on pull requests means editing that file in the
@@ -302,21 +306,23 @@ Design reasoning for these choices is in [`decisions/`](decisions/).
 ## Releasing
 
 Pushing a `v*` tag runs `.github/workflows/release.yml`, which tests the
-tagged commit, builds the wheel and sdist, attests them, and publishes a
-pre-release on GitHub Releases
-([ADR-0014](decisions/0014-github-releases.md)). Only the owner tags; the
-tag ruleset lets only the repository admin create, move, or delete `v*`
-tags.
+tagged commit, builds the wheel and sdist, attests them, and creates a
+**draft** pre-release on GitHub Releases
+([ADR-0014](decisions/0014-github-releases.md),
+[ADR-0020](decisions/0020-owner-publishes-releases.md)). The workflow never
+publishes; the owner does. Only the owner tags (agents are denied in
+`.claude/settings.json`); the tag ruleset stops `v*` tags being moved or
+deleted.
 
 **Once, before the first release** (owner, admin rights):
 - Turn on immutable releases: Settings → General → Releases.
 - Apply the tag ruleset. The first time, create it; afterwards, update it
-  by id:
+  by id (the file is `release-tags.json`):
 
   ```bash
-  gh api -X POST repos/BearingQuest/questvector/rulesets --input .github/rulesets/tags.json
+  gh api -X POST repos/BearingQuest/questvector/rulesets --input .github/rulesets/release-tags.json
   gh api repos/BearingQuest/questvector/rulesets --jq '.[] | select(.name=="release-tags") | .id'
-  gh api -X PUT repos/BearingQuest/questvector/rulesets/<id> --input .github/rulesets/tags.json
+  gh api -X PUT repos/BearingQuest/questvector/rulesets/<id> --input .github/rulesets/release-tags.json
   ```
 
 **Each release:**
@@ -336,8 +342,8 @@ tags.
    `gh run watch <run-id>`. It fails if the commit isn't on `main`, a check
    fails, the tag doesn't equal `__version__`, or `CHANGELOG.md` has no
    section for the version.
-4. Check the result: `gh release view vX.Y.Z` should show a pre-release (not
-   a draft) with three files. Download them and verify:
+4. Check the draft: `gh release view vX.Y.Z` should show a draft
+   pre-release with three files. Download them and verify:
 
    ```bash
    gh release download vX.Y.Z --dir /tmp/qv-X.Y.Z && cd /tmp/qv-X.Y.Z
@@ -349,11 +355,13 @@ tags.
    These are for releases built after the move to BearingQuest and are
    unconfirmed until the first one is verified. v1.1.0 verifies differently;
    see "Install from a release" in the README.
+5. Publish the draft (owner only; the release is immutable once published):
+   `gh release edit vX.Y.Z --draft=false`, or Publish in the GitHub web UI.
 
 **If the run fails:**
-- Before the publish step, nothing is public. Delete the draft if one was
+- Before you publish, nothing is public. Delete the draft if one was
   created (`gh release delete vX.Y.Z --yes`) and the tag
   (`git push --delete origin vX.Y.Z`, then `git tag -d vX.Y.Z`), fix the
   problem on a branch, merge, and tag again.
-- After publishing, the release can't be changed. Fix forward with a new
+- After you publish, the release can't be changed. Fix forward with a new
   patch version.
