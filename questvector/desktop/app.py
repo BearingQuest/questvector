@@ -22,6 +22,7 @@ from questvector.core import matcher, templates, workspace
 from questvector.core.exporter import export_bundle as _export_bundle
 from questvector.core.llm import PROVIDERS, build_narrative_prompt, create_narrative_generator
 from questvector.core.markdown_parser import parse_dossier
+from questvector.core.models import MissionTemplate
 from questvector.core.vault import VaultData, load_vault, update_vault
 from questvector.exceptions import LLMError, QuestVectorError
 
@@ -365,7 +366,7 @@ class Api:
             return _err(exc)
 
     @staticmethod
-    def _load_template_by_id(workspace_dir: Path, template_id: str):  # noqa: ANN205
+    def _load_template_by_id(workspace_dir: Path, template_id: str) -> MissionTemplate:
         """Load a mission template by id, searching the workspace's template dirs.
 
         Args:

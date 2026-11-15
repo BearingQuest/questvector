@@ -19,7 +19,7 @@ uv sync --all-extras               # creates .venv from uv.lock
 ```
 
 `uv sync` installs the exact versions in `uv.lock`, plus the `dev`
-dependency group: pytest, mypy, pyflakes, and the type stubs mypy needs.
+dependency group: pytest, mypy, ruff, and the type stubs mypy needs.
 `--all-extras` adds the three cloud AI provider SDKs (`[llm]`). Without it,
 the 24 tests that patch those SDKs skip with the reason shown; install it to
 run all 255 that run by default (the live tests are opt-in; see below).
@@ -62,16 +62,46 @@ Run all of these before opening a pull request:
 ```bash
 uv run pytest                                     # 289 tests: 285 run, 4 live tests skipped (24 more skip without [llm])
 uv run pytest --cov=questvector                   # fails below 90% line coverage
-uv run mypy questvector                           # type checks; expect "no issues found"
-uv run pyflakes questvector tests                 # lint; expect no output
+uv run mypy                                       # strict type check of questvector; expect "no issues found"
+uv run ruff check .                               # lint; expect "All checks passed!"
+uv run ruff format --check .                      # formatting; `uv run ruff format .` fixes it
 uv run qv template validate templates/boilerplate.qv-mission.yaml
 ```
+
+`make check` runs ruff check, ruff format --check, mypy and pytest in one go.
+The other make targets (`make help` lists them):
+- `make audit`: the same pip-audit run as the `pip-audit` job in
+  `security.yml` (a test fails if the two drift apart). It writes
+  `audit-requirements.txt`, which is ignored by git.
+- `make sbom`: a CycloneDX 1.5 SBOM of the locked runtime dependencies and the
+  AI extras (never the dev or audit groups) in `dist/sbom.cdx.json`. The
+  release workflow runs it too ([ADR-0023](decisions/0023-ruff-strict-mypy-make-hooks-sbom.md)).
+- `make hooks`: run **once per clone**. It points git at `.githooks`, whose
+  `pre-push` hook scans the commits you are pushing with gitleaks
+  (`brew install gitleaks`; the push stops if it isn't installed). CI still
+  scans the full history.
+
+The formatting commit from pull request #43 is listed in
+`.git-blame-ignore-revs`, so blame doesn't point every line at it. GitHub's
+blame view reads that file by itself. To use it locally, once per clone:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+Ruff covers everything except `spikes/`, a finished spike kept for the
+record. A lint finding is fixed in the code; where a rule is right but the
+code is intended, a `# noqa: <rule>` states the reason next to it. Printing
+from `questvector/cli.py` and `tests/live_narrative.py` is allowed by
+per-file ignores in `pyproject.toml`. Tests start processes only through
+`tests/_proc.py`.
 
 What CI runs (`.github/workflows/`). Every job installs with uv from
 `uv.lock` on Python 3.14, on `ubuntu-24.04`:
 - **Tests** (`tests.yml`), on every pull request and push to `main`:
   pytest with coverage with all extras (90% floor enforced), pytest without
-  the AI extras (proves the skip path), and mypy plus pyflakes.
+  the AI extras (proves the skip path), and a `ruff and mypy` job: ruff check,
+  ruff format --check and mypy.
 - **Template validation** (`template-validation.yml`), on every pull
   request and push to `main`.
 - **Security** (`security.yml`), on every pull request and push to `main`:
@@ -315,7 +345,7 @@ Design reasoning for these choices is in [`decisions/`](decisions/).
 ## Releasing
 
 Pushing a `v*` tag runs `.github/workflows/release.yml`, which tests the
-tagged commit, builds the wheel and sdist, attests them, and creates a
+tagged commit, builds the wheel, the sdist and an SBOM, attests them, and creates a
 **draft** pre-release on GitHub Releases
 ([ADR-0014](decisions/0014-github-releases.md),
 [ADR-0020](decisions/0020-owner-publishes-releases.md)). The workflow never
@@ -352,13 +382,15 @@ deleted.
    fails, the tag doesn't equal `__version__`, or `CHANGELOG.md` has no
    section for the version.
 4. Check the draft: `gh release view vX.Y.Z` should show a draft
-   pre-release with three files. Download them and verify:
+   pre-release with four files: the wheel, the sdist, `sbom.cdx.json` and
+   `SHA256SUMS`. Download them and verify:
 
    ```bash
    gh release download vX.Y.Z --dir /tmp/qv-X.Y.Z && cd /tmp/qv-X.Y.Z
    shasum -a 256 -c SHA256SUMS
    gh attestation verify questvector-X.Y.Z-py3-none-any.whl --repo BearingQuest/questvector
    gh attestation verify questvector-X.Y.Z.tar.gz --repo BearingQuest/questvector
+   gh attestation verify sbom.cdx.json --repo BearingQuest/questvector
    ```
 
    These are for releases built after the move to BearingQuest and are

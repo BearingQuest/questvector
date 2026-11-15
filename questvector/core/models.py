@@ -13,7 +13,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
-class AlertLevel(str, Enum):
+# UP042: not a StrEnum on purpose. str() of a member stays "AlertLevel.SUCCESS";
+# a StrEnum would return the value instead, a behaviour change.
+class AlertLevel(str, Enum):  # noqa: UP042
     """Severity levels mapped to the Brand Bible's HUD alert colors.
 
     Values match spec Section 1: ``SUCCESS`` -> Tactical Green,
@@ -48,7 +50,7 @@ class ChronologyEntry:
 
     Attributes:
         heading: The raw heading line (e.g. "Acme Corp — Senior SRE
-            (2020–2023)").
+            (2020-2023)").
         bullets: Responsibility/achievement bullet lines under the heading.
         keywords: Lowercased, stopword-filtered tokens extracted from all
             bullets, for use by the matching engine.

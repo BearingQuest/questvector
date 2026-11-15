@@ -18,7 +18,7 @@ from questvector.core.vault import VaultData, load_vault, save_vault, update_vau
 from questvector.exceptions import VaultError
 
 V1_FIXTURES = Path(__file__).parent / "fixtures" / "vault"
-V1_PASSPHRASE = "qv-fixture-v1-passphrase"
+V1_PASSPHRASE = "qv-fixture-v1-passphrase"  # noqa: S105  # passphrase of the committed v1 fixture, not a real secret
 
 
 def test_save_and_load_vault_round_trip(tmp_path: Path) -> None:

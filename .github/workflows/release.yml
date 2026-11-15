@@ -9,7 +9,7 @@ name: "Release"
 #
 # Two jobs, so no repository code runs with write permissions:
 #   - build:   read-only. Tests, checks the tag, builds the wheel and sdist,
-#              and writes SHA256SUMS. No cache, so nothing poisoned can reach
+#              writes the SBOM and SHA256SUMS. No cache, so nothing poisoned can reach
 #              a release build.
 #   - release: no checkout. Attests the files, then creates the draft.
 #              Releases are immutable once published, so the owner checks the
@@ -62,11 +62,14 @@ jobs:
       - name: Run tests
         run: uv run --no-sync pytest
 
-      - name: Type check (mypy)
-        run: uv run --no-sync mypy questvector
+      - name: Lint (ruff check)
+        run: uv run --no-sync ruff check .
 
-      - name: Lint (pyflakes)
-        run: uv run --no-sync pyflakes questvector tests
+      - name: Format check (ruff format)
+        run: uv run --no-sync ruff format --check .
+
+      - name: Type check (mypy)
+        run: uv run --no-sync mypy
 
       - name: Check the tag matches __version__
         run: |
@@ -108,11 +111,16 @@ jobs:
             exit 1
           fi
 
+      # CycloneDX SBOM of the locked runtime dependencies and AI extras (ADR-0023).
+      # Written before SHA256SUMS so the checksums cover it.
+      - name: Write the SBOM
+        run: make sbom
+
       # Bare file names, so `shasum -a 256 -c SHA256SUMS` works in a download folder.
       - name: Write SHA256SUMS
         run: |
           cd dist
-          sha256sum -- *.whl *.tar.gz > SHA256SUMS
+          sha256sum -- *.whl *.tar.gz sbom.cdx.json > SHA256SUMS
           cat SHA256SUMS
 
       - name: Upload release files
@@ -152,6 +160,7 @@ jobs:
           subject-path: |
             dist/*.whl
             dist/*.tar.gz
+            dist/sbom.cdx.json
 
       # Draft only: the owner publishes it by hand. --verify-tag stops gh from
       # creating a tag that doesn't exist. --prerelease stays while the README
@@ -159,7 +168,7 @@ jobs:
       - name: Create draft release
         run: >-
           gh release create "$GITHUB_REF_NAME"
-          dist/*.whl dist/*.tar.gz dist/SHA256SUMS
+          dist/*.whl dist/*.tar.gz dist/sbom.cdx.json dist/SHA256SUMS
           --draft --verify-tag --prerelease
           --title "QuestVector ${GITHUB_REF_NAME#v}"
           --notes-file notes.md

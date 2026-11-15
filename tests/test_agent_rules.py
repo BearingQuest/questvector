@@ -71,19 +71,19 @@ def test_auto_and_bypass_modes_disabled() -> None:
 
 
 def test_human_gates_denied() -> None:
-    assert REQUIRED_DENY <= set(_rules("deny"))
+    assert set(_rules("deny")) >= REQUIRED_DENY
 
 
 def test_human_gates_denied_option_first() -> None:
-    assert OPTION_FIRST_DENY <= set(_rules("deny"))
+    assert set(_rules("deny")) >= OPTION_FIRST_DENY
 
 
 def test_push_pr_api_and_python_ask() -> None:
-    assert REQUIRED_ASK <= set(_rules("ask"))
+    assert set(_rules("ask")) >= REQUIRED_ASK
 
 
 def test_push_asks_option_first() -> None:
-    assert OPTION_FIRST_ASK <= set(_rules("ask"))
+    assert set(_rules("ask")) >= OPTION_FIRST_ASK
 
 
 def test_every_option_first_rule_has_bare_form() -> None:

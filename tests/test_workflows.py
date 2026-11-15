@@ -25,7 +25,7 @@ GITHUB_ACTIONS_APP_ID = 15368
 REQUIRED_CHECKS = {
     "pytest (full, Python 3.14)",
     "pytest (minimal, Python 3.14)",
-    "mypy and pyflakes",
+    "ruff and mypy",
     "Validate mission templates",
     "gitleaks",
     "semgrep",
@@ -411,3 +411,45 @@ def test_dependabot_covers_uv_and_actions_with_a_cooldown_and_grouped_updates() 
         assert update["cooldown"]["default-days"] == 7
         groups = list(update["groups"].values())
         assert [g["update-types"] for g in groups] == [["minor", "patch"]]
+
+
+def test_ruff_and_mypy_job_runs_lint_format_check_and_types_without_pyflakes() -> None:
+    job = _jobs(WORKFLOWS / "tests.yml")["static-checks"]
+    assert job["name"] == "ruff and mypy"
+    runs = [step["run"] for step in job["steps"] if "run" in step]
+    assert runs[-3:] == [
+        "uv run --no-sync ruff check .",
+        "uv run --no-sync ruff format --check .",
+        "uv run --no-sync mypy",
+    ]
+    for path in WORKFLOW_FILES:
+        assert "pyflakes" not in path.read_text(encoding="utf-8"), path.name
+
+
+def test_release_build_runs_the_same_static_checks_and_writes_the_sbom() -> None:
+    steps = _jobs(RELEASE)["build"]["steps"]
+    runs = [step.get("run", "") for step in steps]
+    for command in (
+        "uv run --no-sync ruff check .",
+        "uv run --no-sync ruff format --check .",
+        "uv run --no-sync mypy",
+    ):
+        assert command in runs
+    # The SBOM exists before the checksums are written, and they cover it.
+    sbom = runs.index("make sbom")
+    sums = next(i for i, run in enumerate(runs) if "SHA256SUMS" in run)
+    assert sbom < sums
+    assert "sbom.cdx.json" in runs[sums]
+    upload = next(s for s in steps if str(s.get("uses", "")).startswith("actions/upload-artifact@"))
+    assert "dist/" in upload["with"]["path"]
+
+
+def test_release_attests_and_attaches_the_sbom_without_building_it() -> None:
+    release = _jobs(RELEASE)["release"]["steps"]
+    attest = next(s for s in release if str(s.get("uses", "")).startswith("actions/attest@"))
+    assert "dist/sbom.cdx.json" in attest["with"]["subject-path"].split()
+    create = next(s["run"] for s in release if "gh release create" in s.get("run", ""))
+    assert "dist/sbom.cdx.json" in create.split()
+    # The release job holds the write and OIDC tokens, so it runs no make or uv.
+    assert all("make " not in step.get("run", "") for step in release)
+    assert all("uv " not in step.get("run", "") for step in release)

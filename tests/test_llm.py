@@ -304,6 +304,22 @@ def test_gemini_generate_raises_on_empty_text() -> None:
 
 
 @requires_gemini
+@pytest.mark.parametrize("value", [42, ["a list"], {"not": "text"}])
+def test_gemini_generate_rejects_a_non_string_text(value: object) -> None:
+    with patch("google.genai.Client") as mock_client_cls:
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.models.generate_content.return_value = SimpleNamespace(text=value)
+
+        generator = GeminiNarrativeGenerator(api_key="sk-test")
+        with pytest.raises(LLMError, match="not text") as exc_info:
+            generator.generate("some prompt")
+
+    assert "sk-test" not in str(exc_info.value)
+    assert str(value) not in str(exc_info.value)
+
+
+@requires_gemini
 def test_gemini_generate_wraps_api_error_as_llm_error() -> None:
     from google.genai import errors as genai_errors
 
@@ -413,14 +429,40 @@ def test_ollama_generator_requires_model_name() -> None:
         OllamaNarrativeGenerator(model="")
 
 
-@pytest.mark.parametrize("host", ["file:///etc/passwd", "ftp://localhost", "localhost:11434", ""])
+@pytest.mark.parametrize(
+    "host",
+    [
+        "file:///etc/passwd",
+        "file://localhost/etc/passwd",  # a scheme the urllib opener accepts, with a host
+        "ftp://localhost",
+        "localhost:11434",  # parsed as the scheme "localhost"
+        "localhost",  # no scheme
+        "//localhost:11434",  # no scheme
+        "http://",  # no host
+        "https:///path",  # no host
+        "",
+    ],
+)
 def test_ollama_generator_rejects_non_http_host(host: str) -> None:
     with pytest.raises(LLMError, match="http:// or https://"):
         OllamaNarrativeGenerator(model="llama3.1", host=host)
 
 
-def test_ollama_generator_accepts_https_host() -> None:
-    OllamaNarrativeGenerator(model="llama3.1", host="https://ollama.example.test:11434/")
+@pytest.mark.parametrize(
+    "host",
+    ["http://localhost:11434", "http://192.168.1.5:11434/", "https://ollama.example.test:11434/"],
+)
+def test_ollama_generator_accepts_http_and_https_hosts(host: str) -> None:
+    OllamaNarrativeGenerator(model="llama3.1", host=host)
+
+
+def test_ollama_generator_never_opens_a_url_when_the_host_is_rejected() -> None:
+    with (
+        patch("urllib.request.urlopen") as mock_urlopen,
+        pytest.raises(LLMError, match="http:// or https://"),
+    ):
+        OllamaNarrativeGenerator(model="llama3.1", host="file:///etc/passwd").generate("p")
+    mock_urlopen.assert_not_called()
 
 
 def test_ollama_generate_returns_text_from_mocked_server() -> None:
@@ -453,6 +495,31 @@ def test_ollama_generate_raises_on_empty_response_field() -> None:
     with patch("urllib.request.urlopen", return_value=fake_response):
         generator = OllamaNarrativeGenerator(model="llama3.1")
         with pytest.raises(LLMError):
+            generator.generate("some prompt")
+
+
+@pytest.mark.parametrize("value", [42, ["a list"], {"not": "text"}])
+def test_ollama_generate_rejects_a_non_string_response(value: object) -> None:
+    fake_response = MagicMock()
+    fake_response.read.return_value = json.dumps({"response": value}).encode("utf-8")
+    fake_response.__enter__.return_value = fake_response
+
+    with patch("urllib.request.urlopen", return_value=fake_response):
+        generator = OllamaNarrativeGenerator(model="llama3.1")
+        with pytest.raises(LLMError, match="not text") as exc_info:
+            generator.generate("some prompt")
+
+    assert str(value) not in str(exc_info.value)
+
+
+def test_ollama_generate_raises_when_the_response_field_is_missing() -> None:
+    fake_response = MagicMock()
+    fake_response.read.return_value = json.dumps({"done": True}).encode("utf-8")
+    fake_response.__enter__.return_value = fake_response
+
+    with patch("urllib.request.urlopen", return_value=fake_response):
+        generator = OllamaNarrativeGenerator(model="llama3.1")
+        with pytest.raises(LLMError, match="empty response"):
             generator.generate("some prompt")
 
 

@@ -4,7 +4,9 @@
   superseded by [0013](0013-python-3-14-uv-lock.md); the Semgrep container
   and the check list are amended by [0021](0021-ci-baseline-zizmor-and-hardening.md);
   the decision to leave out an AI review workflow is superseded by
-  [0022](0022-scheduled-audit-scorecard-and-claude-review.md)
+  [0022](0022-scheduled-audit-scorecard-and-claude-review.md); the
+  `mypy and pyflakes` check is renamed `ruff and mypy` by
+  [0023](0023-ruff-strict-mypy-make-hooks-sbom.md)
 - **Date:** 2026-10-18
 
 ## Context

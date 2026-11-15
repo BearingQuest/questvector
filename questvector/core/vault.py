@@ -31,6 +31,7 @@ written.
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
 import os
 import stat
@@ -41,9 +42,9 @@ from pathlib import Path
 from typing import Any
 
 from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
 
 from questvector import __version__
 from questvector.exceptions import VaultError
@@ -228,10 +229,8 @@ def _restrict_permissions(path: Path) -> None:
         path: The file to restrict. No-op (never raises) on platforms
             where ``chmod`` semantics don't apply the same way (Windows).
     """
-    try:
+    with contextlib.suppress(OSError):
         os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
-    except OSError:
-        pass
 
 
 def _fsync_directory(directory: Path) -> None:

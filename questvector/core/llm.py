@@ -145,30 +145,30 @@ class ProviderSpec:
     api_key_setup_url: str | None
     setup_note: str
     install_extra: str | None
-    factory: Callable[..., "NarrativeGenerator"]
+    factory: Callable[..., NarrativeGenerator]
 
 
 def _make_anthropic(
     *, api_key: str | None, model: str, host: str | None, timeout: float | None
-) -> "NarrativeGenerator":
+) -> NarrativeGenerator:
     return AnthropicNarrativeGenerator(api_key or "", model=model)
 
 
 def _make_openai(
     *, api_key: str | None, model: str, host: str | None, timeout: float | None
-) -> "NarrativeGenerator":
+) -> NarrativeGenerator:
     return OpenAINarrativeGenerator(api_key or "", model=model)
 
 
 def _make_gemini(
     *, api_key: str | None, model: str, host: str | None, timeout: float | None
-) -> "NarrativeGenerator":
+) -> NarrativeGenerator:
     return GeminiNarrativeGenerator(api_key or "", model=model)
 
 
 def _make_ollama(
     *, api_key: str | None, model: str, host: str | None, timeout: float | None
-) -> "NarrativeGenerator":
+) -> NarrativeGenerator:
     return OllamaNarrativeGenerator(
         model=model,
         host=host or DEFAULT_OLLAMA_HOST,
@@ -184,7 +184,10 @@ PROVIDERS: dict[str, ProviderSpec] = {
         requires_api_key=True,
         default_model=DEFAULT_ANTHROPIC_MODEL,
         api_key_setup_url="https://console.anthropic.com/settings/keys",
-        setup_note="Create a key on the Anthropic Console; billing is separate from a claude.ai subscription.",
+        setup_note=(
+            "Create a key on the Anthropic Console; "
+            "billing is separate from a claude.ai subscription."
+        ),
         install_extra="questvector[llm-anthropic]",
         factory=_make_anthropic,
     ),
@@ -551,6 +554,10 @@ class GeminiNarrativeGenerator:
         text = getattr(response, "text", None)
         if not text:
             raise LLMError("LLM returned an empty response", context={"model": self._model})
+        if not isinstance(text, str):
+            raise LLMError(
+                "LLM returned a response that is not text", context={"model": self._model}
+            )
         return text.strip()
 
 
@@ -639,7 +646,8 @@ class OllamaNarrativeGenerator:
                 "options": {"num_predict": self._max_tokens},
             }
         ).encode("utf-8")
-        request = urllib.request.Request(
+        # S310: the scheme is limited to http(s) in __init__ (tests/test_llm.py).
+        request = urllib.request.Request(  # noqa: S310
             f"{self._host}/api/generate",
             data=payload,
             headers={"Content-Type": "application/json"},
@@ -648,8 +656,8 @@ class OllamaNarrativeGenerator:
         context: dict[str, object] = {"model": self._model, "host": self._host}
         try:
             # The scheme is limited to http(s) in __init__.
-            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            with urllib.request.urlopen(request, timeout=self._timeout) as resp:
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # noqa: E501
+            with urllib.request.urlopen(request, timeout=self._timeout) as resp:  # noqa: S310
                 body = json.loads(resp.read().decode("utf-8"))
         # HTTPError subclasses URLError, so it must be caught first: a 404
         # means the server answered, not that it's unreachable.
@@ -698,6 +706,8 @@ class OllamaNarrativeGenerator:
                 f"The model hit its {self._max_tokens}-token limit before writing an answer",
                 context=context,
             )
+        if not isinstance(text, str):
+            raise LLMError("Ollama returned a response that is not text", context=context)
         return text.strip()
 
     def _timeout_error(self, context: dict[str, object]) -> LLMError:
