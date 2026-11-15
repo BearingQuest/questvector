@@ -26,8 +26,8 @@ Python core. Read these before changing anything:
 - **Python 3.14 and uv (ADR-0013).** Set up with `uv sync --all-extras`.
   Change dependencies with `uv add` or `uv lock` and commit `uv.lock` with
   `pyproject.toml`; CI's `uv sync --locked` fails if they disagree.
-- **Before every commit**, run and pass: `uv run pytest`,
-  `uv run mypy questvector`, `uv run pyflakes questvector tests`. CI runs
+- **Before every commit**, run and pass `make check`: `uv run ruff check .`,
+  `uv run ruff format --check .`, `uv run mypy` and `uv run pytest`. CI runs
   the same checks.
 - **CI job names are required checks (ADR-0011).** The `main` ruleset,
   defined in `.github/rulesets/main.json`, requires each check by job name.
