@@ -2,7 +2,9 @@
 
 - **Status:** Accepted; the pip-audit approach and pytest check names are
   superseded by [0013](0013-python-3-14-uv-lock.md); the Semgrep container
-  and the check list are amended by [0021](0021-ci-baseline-zizmor-and-hardening.md)
+  and the check list are amended by [0021](0021-ci-baseline-zizmor-and-hardening.md);
+  the decision to leave out an AI review workflow is superseded by
+  [0022](0022-scheduled-audit-scorecard-and-claude-review.md)
 - **Date:** 2026-10-18
 
 ## Context

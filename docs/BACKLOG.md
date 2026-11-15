@@ -66,8 +66,9 @@ or drift. Known starting points:
 actions pinned to SHAs; gitleaks, Semgrep, and pip-audit in CI; Dependabot
 version updates; `SECURITY.md`. Repository settings (the `main` ruleset with
 no bypass, squash-only merges, private vulnerability reporting) are applied
-once the pull request merges. The Claude review workflow was left out; the
-lock file for pip-audit moves to item 11.
+once the pull request merges. The Claude review workflow was left out and
+added later ([ADR-0022](decisions/0022-scheduled-audit-scorecard-and-claude-review.md));
+the lock file for pip-audit moves to item 11.
 Compare against risk-trainer's scanning and repository settings and adopt
 what fits a local-only Python app. Candidates: branch protection on `main`,
 required status checks, Dependabot (pip and GitHub Actions), CodeQL or
@@ -536,6 +537,11 @@ What it checks and does:
   `ubuntu-24.04`, and a job timeout.
 
 ### Daily dependency audit
+✅ Done 15 Nov 2026 as `pip-audit-daily.yml`
+([ADR-0022](decisions/0022-scheduled-audit-scorecard-and-claude-review.md)),
+with setup-uv's cache off. The weekly deprecation check above is still
+planned.
+
 Decided 5 Nov 2026 (owner). A new advisory against a locked version shows up
 as a failed scheduled run, which GitHub emails to the owner, before an
 unrelated pull request trips over it in the required `pip-audit` check.

@@ -1,0 +1,52 @@
+name: "pip-audit (daily)"
+
+# Daily pip-audit of uv.lock on main, so an advisory published against a
+# locked version shows up without waiting for the next pull request. Same
+# export and audit as the pip-audit job in security.yml (a test keeps them
+# identical); the job name differs so it isn't confused with that required
+# check. Not a required check (ADR-0022).
+# GitHub disables scheduled workflows in a public repo after 60 days with no
+# repository activity; re-enable it from the Actions tab if that happens.
+
+on:
+  schedule:
+    - cron: "23 7 * * *" # 07:23 UTC, off the hour (top-of-hour runs can be delayed)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One audit at a time; a manual run never cancels the scheduled one.
+concurrency:
+  group: pip-audit-daily
+  cancel-in-progress: false
+
+jobs:
+  pip-audit-daily:
+    name: pip-audit (daily)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Python comes from .python-version. No cache: a once-a-day job gains
+      # nothing from it, and it removes a cache-poisoning path.
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.1"
+          enable-cache: false
+      # Audits every package in uv.lock (all extras and groups, every
+      # platform) rather than what one install resolves (ADR-0013). The list
+      # leaves out QuestVector itself, which isn't on PyPI; --strict would
+      # fail on it as unauditable. Platform markers are stripped so the
+      # macOS-only pyobjc packages are audited on this Linux runner too. The
+      # list is fully pinned, so --no-deps skips a second resolve.
+      - name: Export the locked dependencies
+        run: |
+          uv export --locked --all-extras --all-groups --no-emit-project --no-hashes \
+            --format requirements-txt | sed 's/ *;.*//' > audit-requirements.txt
+      - name: Audit locked dependencies
+        run: >-
+          uv run --locked --only-group audit
+          pip-audit --strict --disable-pip --no-deps -r audit-requirements.txt
