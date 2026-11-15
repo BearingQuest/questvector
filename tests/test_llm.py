@@ -77,6 +77,7 @@ def test_generator_raises_when_anthropic_not_installed(monkeypatch: pytest.Monke
 
 @requires_anthropic
 def test_generate_returns_text_from_mocked_client() -> None:
+    """R11: narrative generation runs only when called and returns the model's text."""
     from anthropic.types import TextBlock
 
     with patch("anthropic.Anthropic") as mock_anthropic_cls:
@@ -660,6 +661,7 @@ def test_ollama_generate_empty_response_no_longer_guesses_model_not_pulled() -> 
 
 
 def test_providers_registry_has_all_four_providers() -> None:
+    """R12: the provider registry holds the four supported providers."""
     assert set(PROVIDERS) == {"anthropic", "openai", "gemini", "ollama"}
 
 

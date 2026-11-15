@@ -28,8 +28,11 @@ audit-requirements.txt
 .venv/
 venv/
 
+# Terraform state and provider cache (none used yet)
+*.tfstate
+*.tfstate.*
+.terraform/
+
 # OS files
 .DS_Store
 Thumbs.db
-.DS_Store
-**/ .DS_Store

@@ -45,6 +45,7 @@ def sample_match_result() -> MatchResult:
 def test_export_pdf_produces_valid_pdf_file(
     tmp_path: Path, full_dossier: Dossier, sample_match_result: MatchResult
 ) -> None:
+    """R8: the bundle export writes a valid PDF."""
     output_path = tmp_path / "bundle.pdf"
     export_bundle(
         full_dossier,
