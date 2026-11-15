@@ -60,6 +60,7 @@ record in [`docs/decisions/`](docs/decisions/).
 
 ### Security
 - Upgraded pyasn1 0.6.4 → 0.6.5 (a dependency of google-auth, used by the Gemini provider) to fix CVE-2026-119194, CVE-2026-119195, CVE-2026-119196 and CVE-2026-119197.
+- Upgraded opentelemetry-api 1.45.1 → 1.45.2 (a dependency of the anthropic SDK) to fix CVE-2026-126360. Lockfile change only.
 
 ## [1.1.0] - 2026-10-28
 
