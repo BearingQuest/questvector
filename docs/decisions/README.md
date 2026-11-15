@@ -35,3 +35,4 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0021](0021-ci-baseline-zizmor-and-hardening.md) | CI baseline: zizmor, uvx Semgrep, commented permissions, no release cache | Accepted | 2026-11-15 |
 | [0022](0022-scheduled-audit-scorecard-and-claude-review.md) | Daily pip-audit, OpenSSF Scorecard and Claude review workflows; none a required check | Accepted | 2026-11-15 |
 | [0023](0023-ruff-strict-mypy-make-hooks-sbom.md) | Ruff, strict mypy, make targets, a pre-push hook and a release SBOM | Accepted | 2026-11-15 |
+| [0024](0024-agents-md-and-sandboxed-settings.md) | AGENTS.md holds the agent rules, and the shared settings add a sandbox | Accepted | 2026-11-15 |

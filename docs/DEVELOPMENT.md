@@ -314,9 +314,18 @@ questvector/
 templates/               contributor boilerplate and community/ templates
 tests/                   pytest suite, roughly one file per module
 docs/                    PRD, spec, decisions log, backlog, this guide
+AGENTS.md                the rules every coding agent follows; CLAUDE.md imports it
+.claude/settings.json    shared agent permissions and sandbox (agents never edit it)
 ```
 
 Design reasoning for these choices is in [`decisions/`](decisions/).
+
+Agent rules live in [`AGENTS.md`](../AGENTS.md) (`CLAUDE.md` imports it), the
+permissions and sandbox in `.claude/settings.json`, and
+`tests/test_claude_settings.py` keeps the two in line
+([ADR-0024](decisions/0024-agents-md-and-sandboxed-settings.md)). Only the
+owner edits the settings file; to run zizmor inside the sandbox, use the command
+in `AGENTS.md`.
 
 ## Conventions
 
