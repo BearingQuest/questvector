@@ -152,6 +152,7 @@ def test_validate_template_out_of_tolerance_without_fix_is_invalid() -> None:
 
 
 def test_validate_template_with_fix_rescales_to_one() -> None:
+    """R6: validation rescales category weights to sum to 1.00 when asked."""
     template = MissionTemplate("t", "T", (TemplateCategory("a", 0.3), TemplateCategory("b", 0.3)))
     fixed, result = validate_template(template, fix=True)
     assert result.valid is True
@@ -365,3 +366,13 @@ def test_list_template_files_deduplicates_by_id(tmp_path: Path) -> None:
 
 def test_list_template_files_on_missing_directory_returns_empty(tmp_path: Path) -> None:
     assert list_template_files(tmp_path / "does-not-exist") == []
+
+
+def test_repository_templates_are_valid_and_the_community_folder_exists() -> None:
+    """R7, R20: the boilerplate and every template under templates/ validate."""
+    root = Path(__file__).resolve().parents[1] / "templates"
+    assert (root / "community").is_dir()
+    files = sorted(root.rglob("*.yaml"))
+    assert root / "boilerplate.qv-mission.yaml" in files
+    for path in files:
+        assert validate_template_file(path).valid, path

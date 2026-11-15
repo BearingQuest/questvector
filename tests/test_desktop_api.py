@@ -14,6 +14,7 @@ from questvector.desktop.app import Api
 
 
 def test_launch_workspace_returns_ok_envelope(tmp_path: Path) -> None:
+    """R18: a bridge method answers with an ok envelope."""
     api = Api()
     response = api.launch_workspace(str(tmp_path / "ws"))
     assert response["ok"] is True

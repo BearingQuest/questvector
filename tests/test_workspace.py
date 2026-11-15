@@ -12,6 +12,7 @@ from questvector.exceptions import WorkspaceError
 
 
 def test_init_workspace_creates_dossier_stubs_and_starter_templates(tmp_path: Path) -> None:
+    """R1: a new workspace gets the dossier stubs and the starter templates."""
     workspace_dir = tmp_path / "ws"
     result = init_workspace(workspace_dir)
 

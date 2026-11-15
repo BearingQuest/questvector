@@ -33,6 +33,7 @@ def test_tokenize_empty_string_returns_empty_set() -> None:
 def test_parse_capabilities_groups_bullets_under_domain(
     tmp_path: Path, sample_capabilities_md: str
 ) -> None:
+    """R2: the dossier parser groups bullets under their headings."""
     path = tmp_path / "Capabilities.md"
     path.write_text(sample_capabilities_md, encoding="utf-8")
 
