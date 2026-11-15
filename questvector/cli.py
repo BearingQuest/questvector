@@ -17,7 +17,8 @@ Commands
     qv template validate PATH [--fix] [--json]
         Lint a mission template YAML file; with --fix, rescale weights to
         sum to 1.00 and persist the fix.
-    qv vault set-key --provider {anthropic,openai,gemini,ollama} [--dir PATH] [--model NAME] [--host URL]
+    qv vault set-key --provider {anthropic,openai,gemini,ollama} [--dir PATH]
+                     [--model NAME] [--host URL]
         Store an LLM provider selection (and, for cloud providers, an API
         key) in the workspace's encrypted vault. This command is an
         addition beyond the original spec's CLI table, necessary to make
@@ -36,6 +37,7 @@ import argparse
 import getpass
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from questvector import __version__
@@ -187,7 +189,8 @@ def _cmd_sync_ast(args: argparse.Namespace) -> int:
         )
         for category in result.category_scores:
             print(
-                f"  - {category.name}: {category.coverage * 100:.0f}% coverage (weight {category.weight:.2f})"
+                f"  - {category.name}: {category.coverage * 100:.0f}% coverage "
+                f"(weight {category.weight:.2f})"
             )
         if result.gaps:
             print(f"[QV] Gaps: {', '.join(result.gaps)}")
@@ -329,7 +332,8 @@ def _cmd_vault_set_key(args: argparse.Namespace) -> int:
 
     update_vault(vault_path, passphrase, _set_key)
     print(
-        f"[QV] LLM provider '{args.provider}' (model: {model}) stored in encrypted vault: {vault_path}"
+        f"[QV] LLM provider '{args.provider}' (model: {model}) "
+        f"stored in encrypted vault: {vault_path}"
     )
     return 0
 
@@ -389,7 +393,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--provider",
         required=True,
         choices=sorted(PROVIDERS),
-        help="LLM provider to configure (anthropic, openai, gemini -- all remote; ollama -- local, no API key)",
+        help=(
+            "LLM provider to configure "
+            "(anthropic, openai, gemini -- all remote; ollama -- local, no API key)"
+        ),
     )
     set_key.add_argument("--model", help="Model override (default: the provider's default model)")
     set_key.add_argument("--host", help="Server override, used only by --provider ollama")
@@ -417,8 +424,9 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = _build_parser()
     args = parser.parse_args(argv)
+    handler: Callable[[argparse.Namespace], int] = args.func
     try:
-        return args.func(args)
+        return handler(args)
     except QuestVectorError as exc:
         print(f"[QV] ERROR: {exc}", file=sys.stderr)
         return 1

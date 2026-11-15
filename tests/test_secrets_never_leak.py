@@ -30,7 +30,7 @@ from questvector.desktop.app import Api
 from questvector.exceptions import QuestVectorError
 
 API_KEY_MARKER = "QVLEAKMARKER-apikey-not-a-real-key"
-PASSPHRASE_MARKER = "QVLEAKMARKER-passphrase-not-real"
+PASSPHRASE_MARKER = "QVLEAKMARKER-passphrase-not-real"  # noqa: S105  # made-up marker the test proves never leaks
 MARKERS = (API_KEY_MARKER, PASSPHRASE_MARKER)
 VAULT_FILE = ".questvector.vault"
 

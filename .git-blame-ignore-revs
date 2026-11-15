@@ -1,0 +1,6 @@
+# Commits that only reformat code. `git blame` skips them when
+# blame.ignoreRevsFile points here (docs/DEVELOPMENT.md); GitHub's blame view
+# reads this file by itself.
+
+# Format with ruff 0.17.4 (no behaviour change), pull request #43
+f19c6914728211163612037fca4a214dc2c1c4be

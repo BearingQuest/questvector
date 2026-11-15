@@ -86,7 +86,7 @@ def export_bundle(
             )
     except ExportError:
         raise
-    except Exception as exc:  # noqa: BLE001 - deliberately broad: wrap any
+    except Exception as exc:
         # third-party rendering-library failure into our own exception type
         # so callers only ever need to catch QuestVectorError subclasses.
         raise ExportError(

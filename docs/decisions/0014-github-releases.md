@@ -1,7 +1,8 @@
 # 0014. Release files published to GitHub Releases
 
 - **Status:** Accepted; the auto-publish step and the tag-ruleset
-  restrictions are superseded by [0020](0020-owner-publishes-releases.md)
+  restrictions are superseded by [0020](0020-owner-publishes-releases.md);
+  the release also carries an SBOM ([0023](0023-ruff-strict-mypy-make-hooks-sbom.md))
 - **Date:** 2026-10-28
 
 ## Context

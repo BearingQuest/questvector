@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from questvector.core.models import MissionTemplate, TemplateCategory
 from questvector.core.templates import (
     find_template_file,
     list_template_files,
@@ -16,7 +17,6 @@ from questvector.core.templates import (
     validate_template_file,
     write_template,
 )
-from questvector.core.models import MissionTemplate, TemplateCategory
 from questvector.exceptions import ValidationError
 
 RECONCILED_SCHEMA_YAML = """
@@ -257,7 +257,8 @@ def test_load_template_red_flag_phrases_not_a_list_raises(tmp_path: Path) -> Non
 def test_load_template_gap_coverage_threshold_non_numeric_raises(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        "categories:\n  - name: a\n    weight: 1.0\njd_analysis:\n  gap_coverage_threshold: not-a-number\n",
+        "categories:\n  - name: a\n    weight: 1.0\n"
+        "jd_analysis:\n  gap_coverage_threshold: not-a-number\n",
     )
     with pytest.raises(ValidationError):
         load_template(path)
@@ -274,7 +275,8 @@ def test_load_template_output_formatting_not_a_mapping_raises(tmp_path: Path) ->
 def test_load_template_target_page_budget_non_integer_raises(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        "categories:\n  - name: a\n    weight: 1.0\noutput_formatting:\n  target_page_budget: not-a-number\n",
+        "categories:\n  - name: a\n    weight: 1.0\n"
+        "output_formatting:\n  target_page_budget: not-a-number\n",
     )
     with pytest.raises(ValidationError):
         load_template(path)

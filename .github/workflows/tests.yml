@@ -1,6 +1,6 @@
 name: "Tests"
 
-# Runs the test suite, type checks, and lint on every pull request to main
+# Runs the test suite, lint, format check and type checks on every pull request to main
 # and every push to main. Two install profiles:
 #   - full:    the dev group plus every extra, so all tests run, including
 #              the cloud AI provider tests that patch each SDK.
@@ -99,7 +99,7 @@ jobs:
           PYVER: ${{ matrix.python-version }}
 
   static-checks:
-    name: "mypy and pyflakes"
+    name: "ruff and mypy"
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -120,8 +120,11 @@ jobs:
       - name: Install QuestVector
         run: uv sync --locked --all-extras
 
-      - name: Type check (mypy)
-        run: uv run --no-sync mypy questvector
+      - name: Lint (ruff check)
+        run: uv run --no-sync ruff check .
 
-      - name: Lint (pyflakes)
-        run: uv run --no-sync pyflakes questvector tests
+      - name: Format check (ruff format)
+        run: uv run --no-sync ruff format --check .
+
+      - name: Type check (mypy)
+        run: uv run --no-sync mypy

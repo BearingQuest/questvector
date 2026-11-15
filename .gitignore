@@ -7,8 +7,10 @@ __pycache__/
 build/
 dist/
 
-# Test and coverage output
+# Test, lint and type-check caches and coverage output
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage
 .coverage.*
 htmlcov/
@@ -17,6 +19,10 @@ pytest-results.xml
 
 # pip-audit input written by the local audit command (docs/DEVELOPMENT.md)
 audit-requirements.txt
+
+# Local environment files and personal Claude Code settings
+.env*
+.claude/settings.local.json
 
 # Virtual environments
 .venv/
