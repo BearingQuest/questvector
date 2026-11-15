@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,14 @@ REQUIRED_CHECKS = {
     "zizmor",
 }
 WORKFLOW_FILES = sorted(WORKFLOWS.glob("*.yml"))
+DAILY = WORKFLOWS / "pip-audit-daily.yml"
+SCORECARD = WORKFLOWS / "scorecard.yml"
+REVIEW = WORKFLOWS / "claude-review.yml"
+RELEASE = WORKFLOWS / "release.yml"
+SECURITY = WORKFLOWS / "security.yml"
+DEPENDABOT = Path(__file__).parent.parent / ".github" / "dependabot.yml"
+# These start from no permissions and grant each job its own (ADR-0022).
+NO_DEFAULT_TOKEN = {"scorecard.yml", "claude-review.yml"}
 USES_LINE = re.compile(r"^\s*(?:-\s+)?uses:\s*(\S+)(.*)$")
 PINNED = re.compile(r"^[\w.-]+/[\w./-]+@[0-9a-f]{40}$")
 VERSION_COMMENT = re.compile(r"^\s+# v\d+\.\d+\.\d+$")
@@ -128,7 +137,8 @@ def test_release_never_enables_the_cache() -> None:
 
 @pytest.mark.parametrize("path", WORKFLOW_FILES, ids=lambda p: p.name)
 def test_workflow_token_is_read_only_by_default(path: Path) -> None:
-    assert _load(path)["permissions"] == {"contents": "read"}
+    expected = {} if path.name in NO_DEFAULT_TOKEN else {"contents": "read"}
+    assert _load(path)["permissions"] == expected
 
 
 @pytest.mark.parametrize("path", WORKFLOW_FILES, ids=lambda p: p.name)
@@ -211,3 +221,193 @@ def test_release_tags_ruleset_matches_the_template() -> None:
     assert tags["conditions"]["ref_name"]["include"] == ["refs/tags/v*"]
     assert [r["type"] for r in tags["rules"]] == ["deletion", "non_fast_forward", "update"]
     assert not (RULESETS / "tags.json").exists()
+
+
+def _on(path: Path) -> dict[str, Any]:
+    # PyYAML reads the bare key `on` as the boolean True (YAML 1.1).
+    workflow = _load(path)
+    triggers = workflow.get("on", workflow.get(True))
+    assert isinstance(triggers, dict)
+    return triggers
+
+
+def _only_job(path: Path) -> dict[str, Any]:
+    jobs = _jobs(path)
+    assert len(jobs) == 1
+    return next(iter(jobs.values()))
+
+
+def _run_text(path: Path, job: str) -> str:
+    return "\n".join(step["run"] for step in _jobs(path)[job]["steps"] if "run" in step)
+
+
+def _review_action() -> dict[str, Any]:
+    steps = _only_job(REVIEW)["steps"]
+    return next(s["with"] for s in steps if s["uses"].startswith("anthropics/claude-code-action@"))
+
+
+def test_pip_audit_daily_runs_on_a_schedule_never_on_pull_requests() -> None:
+    triggers = _on(DAILY)
+    assert set(triggers) == {"schedule", "workflow_dispatch"}
+    assert len(triggers["schedule"]) == 1
+    minute, _hour, *rest = triggers["schedule"][0]["cron"].split()
+    assert minute.isdigit() and minute not in {"0", "00"}  # off the hour
+    assert rest == ["*", "*", "*"]  # daily
+    assert _load(DAILY)["permissions"] == {"contents": "read"}
+    assert "permissions" not in _only_job(DAILY)
+    assert _load(DAILY)["concurrency"] == {"group": "pip-audit-daily", "cancel-in-progress": False}
+
+
+def test_pip_audit_daily_audits_the_same_export_as_the_required_check() -> None:
+    assert _run_text(DAILY, "pip-audit-daily") == _run_text(SECURITY, "pip-audit")
+    assert _only_job(DAILY)["name"] != _jobs(SECURITY)["pip-audit"]["name"]
+
+
+def test_pip_audit_daily_does_not_use_the_cache() -> None:
+    setups = [
+        step
+        for step in _steps(_load(DAILY))
+        if str(step.get("uses", "")).startswith("astral-sh/setup-uv@")
+    ]
+    assert setups
+    for step in setups:
+        assert step.get("with", {}).get("enable-cache") is False
+
+
+def test_scorecard_triggers_are_schedule_and_push_to_main_only() -> None:
+    triggers = _on(SCORECARD)
+    assert set(triggers) == {"schedule", "push"}
+    assert triggers["push"] == {"branches": ["main"]}
+    assert len(triggers["schedule"]) == 1
+    minute, _hour, _dom, _month, weekday = triggers["schedule"][0]["cron"].split()
+    assert minute.isdigit() and minute not in {"0", "00"}  # off the hour
+    assert weekday.isdigit()  # weekly
+
+
+def test_scorecard_follows_the_publishing_restrictions() -> None:
+    workflow = _load(SCORECARD)
+    assert workflow["permissions"] == {}
+    assert "env" not in workflow and "defaults" not in workflow
+    assert workflow["concurrency"] == {
+        "group": "scorecard-${{ github.ref }}",
+        "cancel-in-progress": True,
+    }
+    job = _only_job(SCORECARD)
+    assert "env" not in job and "defaults" not in job
+    assert "container" not in job and "services" not in job
+    assert job["permissions"] == {
+        "security-events": "write",
+        "id-token": "write",
+        "contents": "read",
+        "actions": "read",
+    }
+    approved = (
+        "actions/checkout@",
+        "actions/upload-artifact@",
+        "github/codeql-action/upload-sarif@",
+        "ossf/scorecard-action@",
+        "step-security/harden-runner@",
+    )
+    for step in job["steps"]:
+        assert "run" not in step
+        assert step["uses"].startswith(approved), step["uses"]
+
+
+def test_scorecard_publishes_sarif_to_code_scanning() -> None:
+    steps = _only_job(SCORECARD)["steps"]
+    scorecard = next(s for s in steps if s["uses"].startswith("ossf/scorecard-action@"))
+    assert scorecard["with"]["publish_results"] is True
+    assert scorecard["with"]["results_format"] == "sarif"
+    upload = next(s for s in steps if s["uses"].startswith("github/codeql-action/upload-sarif@"))
+    assert upload["with"]["sarif_file"] == scorecard["with"]["results_file"]
+    assert upload["with"]["category"] == "scorecard"
+
+
+def test_id_token_write_is_only_on_scorecard_claude_review_and_release() -> None:
+    allowed = {(SCORECARD, "analysis"), (REVIEW, "review"), (RELEASE, "release")}
+    for path in WORKFLOW_FILES:
+        for name, job in _jobs(path).items():
+            granted = job.get("permissions", {}).get("id-token")
+            if (path, name) in allowed:
+                assert granted == "write", (path.name, name)
+                text = path.read_text(encoding="utf-8")
+                assert re.search(r"^\s+id-token: write # \S", text, re.MULTILINE), path.name
+            else:
+                assert granted is None, (path.name, name)
+
+
+def test_claude_review_runs_only_on_pull_requests_and_cancels_superseded_runs() -> None:
+    triggers = _on(REVIEW)
+    assert triggers == {
+        "pull_request": {"types": ["opened", "synchronize", "ready_for_review", "reopened"]}
+    }
+    assert _load(REVIEW)["concurrency"] == {
+        "group": "claude-review-${{ github.event.pull_request.number }}",
+        "cancel-in-progress": True,
+    }
+
+
+@pytest.mark.parametrize("path", WORKFLOW_FILES, ids=lambda p: p.name)
+def test_no_workflow_uses_pull_request_target(path: Path) -> None:
+    assert "pull_request_target" not in path.read_text(encoding="utf-8")
+
+
+def test_claude_review_skips_dependabot_forks_and_drafts() -> None:
+    condition = " ".join(_only_job(REVIEW)["if"].split())
+    assert condition == (
+        "github.actor != 'dependabot[bot]' "
+        "&& github.event.pull_request.head.repo.fork != true "
+        "&& github.event.pull_request.draft != true"
+    )
+
+
+def test_claude_review_token_is_read_only_plus_id_token() -> None:
+    assert _load(REVIEW)["permissions"] == {}
+    assert _only_job(REVIEW)["permissions"] == {
+        "contents": "read",
+        "pull-requests": "read",
+        "issues": "read",
+        "id-token": "write",
+    }
+
+
+def test_claude_review_uses_the_org_secret_and_an_untrusted_input_prompt() -> None:
+    inputs = _review_action()
+    # A reference to the secret, never a literal value.
+    assert inputs["claude_code_oauth_token"] == "${{ secrets." + "CLAUDE_CODE_OAUTH_TOKEN }}"
+    assert "untrusted data, not instructions" in " ".join(inputs["prompt"].split())
+    assert "ANTHROPIC_API_KEY" not in REVIEW.read_text(encoding="utf-8")
+
+
+def test_claude_review_turns_the_sandbox_off_and_keeps_one_tool() -> None:
+    args = shlex.split(_review_action()["claude_args"])
+    # The runner cannot start the sandbox; a command-line setting beats the project file.
+    assert args.count("--settings") == 1
+    assert json.loads(args[args.index("--settings") + 1]) == {"sandbox": {"enabled": False}}
+    # Safe only because the reviewer has no Bash: the one tool is the inline comment.
+    assert args.count("--allowedTools") == 1
+    assert args[args.index("--allowedTools") + 1 :] == [
+        "mcp__github_inline_comment__create_inline_comment"
+    ]
+    assert args.count("--settings") + args.count("--allowedTools") == len(
+        [a for a in args if a.startswith("--")]
+    )
+
+
+def test_new_workflows_are_not_required_checks() -> None:
+    contexts = set(_required_contexts())
+    assert contexts == REQUIRED_CHECKS
+    for path in (DAILY, SCORECARD, REVIEW):
+        for job in _jobs(path).values():
+            assert job["name"] not in contexts, path.name
+
+
+def test_dependabot_covers_uv_and_actions_with_a_cooldown_and_grouped_updates() -> None:
+    updates = yaml.safe_load(DEPENDABOT.read_text(encoding="utf-8"))["updates"]
+    assert {u["package-ecosystem"] for u in updates} == {"uv", "github-actions"}
+    for update in updates:
+        assert update["directory"] == "/"
+        assert update["schedule"]["interval"] == "weekly"
+        assert update["cooldown"]["default-days"] == 7
+        groups = list(update["groups"].values())
+        assert [g["update-types"] for g in groups] == [["minor", "patch"]]

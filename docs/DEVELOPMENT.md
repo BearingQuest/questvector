@@ -83,9 +83,17 @@ What CI runs (`.github/workflows/`). Every job installs with uv from
   workflow file).
 - **Release** (`release.yml`), only when a `v*` tag is pushed; never on a
   pull request. See [Releasing](#releasing).
+- **pip-audit (daily)** (`pip-audit-daily.yml`), every day and on demand: the
+  same audit as the `pip-audit` job, so a new advisory fails a scheduled run.
+- **Scorecard** (`scorecard.yml`), weekly and on push to `main`: OpenSSF
+  Scorecard results, published and sent to code scanning.
+- **Claude review** (`claude-review.yml`), on pull requests that aren't
+  drafts, forks or Dependabot's: inline review comments only. It can't run
+  on a pull request that changes its own file
+  ([ADR-0022](decisions/0022-scheduled-audit-scorecard-and-claude-review.md)).
 
 Results appear in each run's summary on the pull request's Checks tab. All
-of these except Release are required checks on `main`
+of these except Release and the last three are required checks on `main`
 ([ADR-0011](decisions/0011-github-security-baseline.md)): a pull request
 can't merge until they pass, and it merges by squash only.
 
@@ -94,12 +102,13 @@ commit SHA with a version comment and checks out with
 `persist-credentials: false`, and that `release.yml` keeps its tag-only
 trigger, permissions and no cache, and that it creates a draft and never
 publishes it; that every permission grant has a comment; that no workflow
-expands `${{ }}` inside a `run` script; and that `main.json` requires the
-agreed checks, zizmor among them.
+expands `${{ }}` inside a `run` script; that `main.json` requires the
+agreed checks, zizmor among them, and none of the three workflows above;
+that `id-token: write` appears only on the Scorecard, review and release
+jobs; and that the review keeps its sandbox override and its one tool.
 
-The ruleset lives in `.github/rulesets/main.json`. Renaming, adding, or
-removing a CI job that runs on pull requests means editing that file in the
-same pull request, then
+The ruleset lives in `.github/rulesets/main.json`. Adding or renaming a
+required check means editing that file in the same pull request, then
 applying it to the live ruleset (the owner runs this; it needs admin
 rights):
 

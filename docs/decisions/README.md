@@ -22,7 +22,7 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0008](0008-ci-results-in-run-summary.md) | CI reports results in the run summary, not a PR comment | Accepted | 2026-10-15 |
 | [0009](0009-bundled-starter-templates-only.md) | Bundled package templates are the only starter source | Accepted | 2026-10-15 |
 | [0010](0010-single-source-version.md) | `__version__` is the single source of the version | Accepted | 2026-09-15 |
-| [0011](0011-github-security-baseline.md) | GitHub security baseline modeled on risk-trainer | Accepted; partly superseded by 0013, amended by 0021 | 2026-10-18 |
+| [0011](0011-github-security-baseline.md) | GitHub security baseline modeled on risk-trainer | Accepted; partly superseded by 0013 and 0022, amended by 0021 | 2026-10-18 |
 | [0012](0012-ollama-thinking-off.md) | Ollama requests switch thinking off | Accepted | 2026-10-20 |
 | [0013](0013-python-3-14-uv-lock.md) | Python 3.14 only, managed with uv and a committed lock file | Accepted | 2026-10-27 |
 | [0014](0014-github-releases.md) | Release files published to GitHub Releases | Accepted; auto-publish and tag ruleset superseded by 0020 | 2026-10-28 |
@@ -33,3 +33,4 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0019](0019-agent-permission-guardrails.md) | Shared Claude Code settings lock agent modes and deny the human gates | Accepted | 2026-11-05 |
 | [0020](0020-owner-publishes-releases.md) | The owner publishes releases; the workflow only creates a draft | Accepted | 2026-11-15 |
 | [0021](0021-ci-baseline-zizmor-and-hardening.md) | CI baseline: zizmor, uvx Semgrep, commented permissions, no release cache | Accepted | 2026-11-15 |
+| [0022](0022-scheduled-audit-scorecard-and-claude-review.md) | Daily pip-audit, OpenSSF Scorecard and Claude review workflows; none a required check | Accepted | 2026-11-15 |
