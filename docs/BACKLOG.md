@@ -480,7 +480,7 @@ template, `.github/pull_request_template.md`, from the Personal Software
 Projects engineering standards.
 
 Done (owner decision, 12 Nov 2026): the base template is in
-`.github/pull_request_template.md`, unchanged, and `CLAUDE.md` tells agents
+`.github/pull_request_template.md`, unchanged, and `AGENTS.md` tells agents
 to fill in every section of it, in order, in the pull request body, because
 `gh pr create --body` skips the template.
 
