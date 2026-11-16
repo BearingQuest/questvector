@@ -22,5 +22,6 @@ particular interest:
 
 ## Supported versions
 
-Only the latest commit on `main` is supported. There are no tagged releases
-yet.
+The latest release (currently 1.1.0) and the latest commit on `main` are
+supported. Older releases (1.0.0 and earlier) are not; upgrade to the latest
+release.
