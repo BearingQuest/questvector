@@ -62,8 +62,28 @@ def test_gitignore_covers_the_tool_caches_and_local_files() -> None:
         "audit-requirements.txt",
         ".env*",
         ".claude/settings.local.json",
+        ".DS_Store",
+        "*.tfstate",
+        "*.tfstate.*",
+        ".terraform/",
     }
     assert expected <= entries
+
+
+def test_no_noqa_line_length_exemption_in_the_package() -> None:
+    for path in sorted((ROOT / "questvector").rglob("*.py")):
+        assert "noqa: E501" not in path.read_text(encoding="utf-8"), path.name
+
+
+def test_records_are_kept_current() -> None:
+    """R21: the changelog has an Unreleased section and every ADR is in the index."""
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "## [Unreleased]" in changelog
+    index = (ROOT / "docs" / "decisions" / "README.md").read_text(encoding="utf-8")
+    for record in sorted((ROOT / "docs" / "decisions").glob("[0-9][0-9][0-9][0-9]-*.md")):
+        if record.name.startswith("0000-"):
+            continue
+        assert record.name in index, record.name
 
 
 def test_makefile_has_the_five_targets() -> None:

@@ -68,7 +68,17 @@ uv run ruff format --check .                      # formatting; `uv run ruff for
 uv run qv template validate templates/boilerplate.qv-mission.yaml
 ```
 
-`make check` runs ruff check, ruff format --check, mypy and pytest in one go.
+`make check` runs ruff check, ruff format --check, mypy, pytest with coverage
+(`--cov=questvector`, the 90% floor above) and `qv template validate` on every
+template under `templates/`, in one go. The floor assumes the full install
+(`uv sync --all-extras`): on a minimal install the AI SDK tests skip and
+coverage can fall under 90%, as `tests.yml` explains. There is no end-to-end
+test target yet.
+
+Every requirement marked Built or Partly built in `docs/PRD.md` is named
+(`R12`, for example) in the docstring of at least one test, and
+`tests/test_requirements_coverage.py` fails if one isn't. Add the ID to a test
+that covers the built part when you mark a requirement built.
 The other make targets (`make help` lists them):
 - `make audit`: the same pip-audit run as the `pip-audit` job in
   `security.yml` (a test fails if the two drift apart). It writes
@@ -314,9 +324,18 @@ questvector/
 templates/               contributor boilerplate and community/ templates
 tests/                   pytest suite, roughly one file per module
 docs/                    PRD, spec, decisions log, backlog, this guide
+AGENTS.md                the rules every coding agent follows; CLAUDE.md imports it
+.claude/settings.json    shared agent permissions and sandbox (agents never edit it)
 ```
 
 Design reasoning for these choices is in [`decisions/`](decisions/).
+
+Agent rules live in [`AGENTS.md`](../AGENTS.md) (`CLAUDE.md` imports it), the
+permissions and sandbox in `.claude/settings.json`, and
+`tests/test_claude_settings.py` keeps the two in line
+([ADR-0024](decisions/0024-agents-md-and-sandboxed-settings.md)). Only the
+owner edits the settings file; to run zizmor inside the sandbox, use the command
+in `AGENTS.md`.
 
 ## Conventions
 
