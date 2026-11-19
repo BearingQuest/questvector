@@ -38,7 +38,7 @@ Use the logo files through `<img>` or as CSS backgrounds. Their mask ids (`m`, `
 - Fonts: Inter for UI and body, IBM Plex Mono for IDs, figures and code. Self-host pinned releases with SHA-256 hashes and ship each OFL licence beside the files; no font CDN. Cinzel isn't needed, since the lockup SVGs have the wordmark as outlines.
 - Data colors never use `accent` or `error`.
 - Focus: 2px solid `focus` ring with a 2px offset on every focusable element, both themes.
-- Contrast: an automated test checks the token pairs named in `tokens.json` in both themes against WCAG 2.2 AA (4.5:1 text; 3:1 focus rings, control outlines and bar fills against their track).
+- Contrast: the token pairs named in `tokens.json` must meet WCAG 2.2 AA in both themes (4.5:1 text; 3:1 focus rings, control outlines and bar fills against their track). The automated test for this doesn't exist yet; it is planned with the UI redesign (backlog item 15).
 - Themes: light, dark and auto (follows the device), with a manual switch in settings.
 - Copy: plain words, sentence case, "you", no absolutes about security controls, sample data labelled as synthetic.
 

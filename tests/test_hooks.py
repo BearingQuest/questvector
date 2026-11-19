@@ -241,6 +241,7 @@ def test_makefile_check_and_hooks_recipes() -> None:
         "uv run ruff check .",
         "uv run ruff format --check .",
         "uv run mypy",
-        "uv run pytest",
+        "uv run pytest --cov=questvector",
+        "find templates -type f -name '*.yaml' -print0 | xargs -0 -n1 uv run qv template validate",
     ]
     assert recipe("hooks") == ["git config core.hooksPath .githooks"]

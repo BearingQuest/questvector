@@ -128,6 +128,49 @@ qv --version                                    # reads questvector.__version__ 
 
 ---
 
+## ⚙️ Configuration
+
+QuestVector has no configuration file. Its tunables are constants in `questvector/config.py`, changed by editing the source. The installed package reads **no environment variables**; provider settings and API keys live in the [encrypted vault](#about-the-vault). The environment variables below are read only by the opt-in live tests (see [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)). Key variables are listed by name only, and `tests/test_readme_configuration.py` fails if this table and the code disagree.
+
+| Name | Where | Default | What it does |
+|---|---|---|---|
+| `DEFAULT_CONFIG_DIR` | `config.py` | `~/.questvector` | Per-user configuration folder |
+| `CAPABILITIES_FILENAME` | `config.py` | `Capabilities.md` | Dossier file for skills and tools |
+| `CHRONOLOGY_FILENAME` | `config.py` | `Chronology.md` | Dossier file for roles |
+| `IMPACT_FILENAME` | `config.py` | `Impact.md` | Dossier file for quantified results |
+| `DOSSIER_FILENAMES` | `config.py` | `Capabilities.md, Chronology.md, Impact.md` | The three dossier files a workspace expects |
+| `TEMPLATES_DIRNAME` | `config.py` | `templates` | Workspace folder for mission templates |
+| `STARTER_TEMPLATES_DIRNAME` | `config.py` | `starter` | Subfolder for the bundled starter templates |
+| `COMMUNITY_TEMPLATES_DIRNAME` | `config.py` | `community` | Subfolder for community templates |
+| `BUNDLES_DIRNAME` | `config.py` | `bundles` | Workspace folder for bundles |
+| `LOCK_FILENAME` | `config.py` | `.questvector.lock` | Workspace lock file |
+| `VAULT_FILENAME` | `config.py` | `.questvector.vault` | Encrypted vault file |
+| `WEIGHT_SUM_TARGET` | `config.py` | `1.0` | A template's category weights must add up to this |
+| `WEIGHT_SUM_TOLERANCE` | `config.py` | `0.005` | Allowed distance from the target before a template is flagged |
+| `MATCH_RED_FLAG_WEIGHT_THRESHOLD` | `config.py` | `0.2` | A zero-coverage category at or above this weight is a critical red flag |
+| `MATCH_CRITICAL_SCORE` | `config.py` | `40.0` | G-Force score below this is Critical |
+| `MATCH_WARNING_SCORE` | `config.py` | `70.0` | G-Force score below this is a Warning |
+| `STOPWORDS` | `config.py` | `55 words` | Words the matcher ignores |
+| `THEME.background` | `config.py` | `#0b0f19` | Current HUD colour, replaced by the UI redesign |
+| `THEME.panel` | `config.py` | `#0d1322` | Current HUD colour, replaced by the UI redesign |
+| `THEME.accent` | `config.py` | `#00f2fe` | Current HUD colour, replaced by the UI redesign |
+| `THEME.success` | `config.py` | `#10b981` | Current HUD colour, replaced by the UI redesign |
+| `THEME.warning` | `config.py` | `#f59e0b` | Current HUD colour, replaced by the UI redesign |
+| `THEME.critical` | `config.py` | `#ef4444` | Current HUD colour, replaced by the UI redesign |
+| `QV_LIVE_PROVIDERS` | environment | `unset` | Comma-separated remote providers the live test runs against |
+| `QV_ANTHROPIC_MODEL` | environment | `claude-sonnet-5-5` | Model for the live Anthropic test |
+| `QV_OPENAI_MODEL` | environment | `gpt-6-luna` | Model for the live OpenAI test |
+| `QV_GEMINI_MODEL` | environment | `gemini-3.6-flash` | Model for the live Gemini test |
+| `ANTHROPIC_API_KEY` | environment | `unset` | Key for the live Anthropic test (secret, never printed) |
+| `OPENAI_API_KEY` | environment | `unset` | Key for the live OpenAI test (secret, never printed) |
+| `GEMINI_API_KEY` | environment | `unset` | Key for the live Gemini test (secret, never printed) |
+| `QV_OLLAMA_LIVE` | environment | `unset` | Set to `1` to run the live Ollama test |
+| `QV_OLLAMA_MODEL` | environment | `gemma4:12b-it-q4_K_M` | Model for the live Ollama test |
+| `QV_OLLAMA_HOST` | environment | `http://localhost:11434` | Ollama server URL |
+| `QV_OLLAMA_TIMEOUT` | environment | `300.0` | Seconds to wait for Ollama |
+
+---
+
 ## 🧭 Features (Python build — this is what exists)
 
 * **`qv` CLI** (stdlib `argparse`) — `launch`, `sync-ast`, `export`, `template validate`, `vault set-key`.

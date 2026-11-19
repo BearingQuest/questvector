@@ -71,7 +71,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from questvector.exceptions import LLMError
 
@@ -655,10 +655,7 @@ class OllamaNarrativeGenerator:
         )
         context: dict[str, object] = {"model": self._model, "host": self._host}
         try:
-            # The scheme is limited to http(s) in __init__.
-            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # noqa: E501
-            with urllib.request.urlopen(request, timeout=self._timeout) as resp:  # noqa: S310
-                body = json.loads(resp.read().decode("utf-8"))
+            body = _read_json(request, self._timeout)
         # HTTPError subclasses URLError, so it must be caught first: a 404
         # means the server answered, not that it's unreachable.
         except urllib.error.HTTPError as exc:
@@ -725,6 +722,23 @@ class OllamaNarrativeGenerator:
             "'qv vault set-key --provider ollama --timeout SECONDS'",
             context={**context, "timeout": self._timeout},
         )
+
+
+def _read_json(request: urllib.request.Request, timeout: float) -> Any:
+    """Send ``request`` and parse the JSON body of the answer.
+
+    Args:
+        request: A request built by ``OllamaNarrativeGenerator``, whose host
+            ``__init__`` limits to http(s).
+        timeout: Seconds to wait for the server.
+
+    Returns:
+        The decoded JSON body.
+    """
+    # The scheme is limited to http(s) in OllamaNarrativeGenerator.__init__.
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+    with urllib.request.urlopen(request, timeout=timeout) as resp:  # noqa: S310
+        return json.loads(resp.read().decode("utf-8"))
 
 
 def _ollama_error_detail(exc: urllib.error.HTTPError) -> str:

@@ -208,6 +208,7 @@ def test_shipped_kdf_settings() -> None:
 
 @pytest.mark.real_kdf
 def test_real_kdf_round_trip_writes_format_2(tmp_path: Path) -> None:
+    """R17: a new vault uses PBKDF2 at 1,000,000 iterations and records it."""
     path = tmp_path / "vault.dat"
     save_vault(path, "correct-horse", VaultData(llm_provider="ollama", llm_model="llama3.1"))
 

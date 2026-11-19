@@ -136,6 +136,7 @@ def test_set_key_output_logs_and_vault_file_hold_no_secrets(
     capsys: pytest.CaptureFixture[str],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """R16: storing a key leaves no secret in output, logs or the vault file."""
     workspace_dir = tmp_path / "ws"
     workspace_dir.mkdir()
 

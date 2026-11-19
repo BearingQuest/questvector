@@ -103,6 +103,7 @@ def test_missing_key_fails_naming_the_variable(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_failure_message_never_shows_the_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """R15: a live-test failure never prints the API key."""
     key = "plainlivekeymarker"
     monkeypatch.setenv("ANTHROPIC_API_KEY", key)
 

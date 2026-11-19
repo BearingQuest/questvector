@@ -36,3 +36,4 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0022](0022-scheduled-audit-scorecard-and-claude-review.md) | Daily pip-audit, OpenSSF Scorecard and Claude review workflows; none a required check | Accepted | 2026-11-15 |
 | [0023](0023-ruff-strict-mypy-make-hooks-sbom.md) | Ruff, strict mypy, make targets, a pre-push hook and a release SBOM | Accepted | 2026-11-15 |
 | [0024](0024-agents-md-and-sandboxed-settings.md) | AGENTS.md holds the agent rules, and the shared settings add a sandbox | Accepted | 2026-11-15 |
+| [0025](0025-meets-engineering-baseline-2-0.md) | Meets engineering baseline 2.0, with the recorded departures | Accepted | 2026-11-15 |

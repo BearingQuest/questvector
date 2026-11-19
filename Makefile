@@ -8,11 +8,12 @@ SHELL := /bin/bash
 help: ## List the targets
 	@grep -E '^[a-z0-9]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{ printf "  %-6s %s\n", $$1, $$2 }'
 
-check: ## Ruff lint, ruff format check, mypy, then pytest
+check: ## Ruff, mypy, pytest with coverage, template validation
 	uv run ruff check .
 	uv run ruff format --check .
 	uv run mypy
-	uv run pytest
+	uv run pytest --cov=questvector
+	find templates -type f -name '*.yaml' -print0 | xargs -0 -n1 uv run qv template validate
 
 # The same commands as the pip-audit job in .github/workflows/security.yml;
 # tests/test_hooks.py fails if the two drift apart.

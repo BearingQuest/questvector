@@ -21,6 +21,7 @@ def _template(*categories: TemplateCategory, **kwargs: object) -> MissionTemplat
 
 
 def test_parse_job_description_extracts_keywords() -> None:
+    """R3: a job description is turned into keywords to score against."""
     jd = parse_job_description("Senior AWS Kubernetes Engineer", source="test")
     assert "aws" in jd.keywords
     assert jd.source == "test"
@@ -32,6 +33,7 @@ def test_parse_job_description_empty_text_raises() -> None:
 
 
 def test_run_match_full_coverage_yields_high_score() -> None:
+    """R4: scoring rules, full coverage gives a high score."""
     dossier = Dossier(
         capabilities=(
             Capability(domain="Cloud", text="aws terraform", keywords=tokenize("aws terraform")),
