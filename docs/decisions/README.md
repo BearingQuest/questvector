@@ -24,7 +24,7 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0010](0010-single-source-version.md) | `__version__` is the single source of the version | Accepted | 2026-09-15 |
 | [0011](0011-github-security-baseline.md) | GitHub security baseline modeled on risk-trainer | Accepted; partly superseded by 0013 and 0022, amended by 0021 and 0023 | 2026-10-18 |
 | [0012](0012-ollama-thinking-off.md) | Ollama requests switch thinking off | Accepted | 2026-10-20 |
-| [0013](0013-python-3-14-uv-lock.md) | Python 3.14 only, managed with uv and a committed lock file | Accepted | 2026-10-27 |
+| [0013](0013-python-3-14-uv-lock.md) | Python 3.14 only, managed with uv and a committed lock file | Accepted; cooldown placement amended by 0026 | 2026-10-27 |
 | [0014](0014-github-releases.md) | Release files published to GitHub Releases | Accepted; auto-publish and tag ruleset superseded by 0020, amended by 0023 | 2026-10-28 |
 | [0015](0015-pbkdf2-1m-iterations-vault-v2.md) | Vault key derivation: PBKDF2 at 1,000,000 iterations, settings stored in the file | Accepted | 2026-10-28 |
 | [0016](0016-browser-app-static-pages.md) | Browser app served as static files from GitHub Pages | Accepted | 2026-10-28 |
@@ -37,3 +37,4 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0023](0023-ruff-strict-mypy-make-hooks-sbom.md) | Ruff, strict mypy, make targets, a pre-push hook and a release SBOM | Accepted | 2026-11-15 |
 | [0024](0024-agents-md-and-sandboxed-settings.md) | AGENTS.md holds the agent rules, and the shared settings add a sandbox | Accepted | 2026-11-15 |
 | [0025](0025-meets-engineering-baseline-2-0.md) | Meets engineering baseline 2.0, with the recorded departures | Accepted | 2026-11-15 |
+| [0026](0026-readme-presentation-and-november-carry-overs.md) | README presentation and the November carry-overs | Accepted | 2026-11-22 |

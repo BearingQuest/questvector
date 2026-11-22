@@ -20,6 +20,8 @@ Python core. Read these before changing anything:
     rule, the mode locks and the sandbox keys, excludes only `gh` from the sandbox, and allows
     nothing; it also checks that this file keeps the `gh` rule and the `~/career-workspace`
     rule and that `CLAUDE.md` imports it
+  - `test_readme.py` - the README images: alt text, allowed sources, `<picture>` fallbacks,
+    every file in `docs/readme/` used and 5 MB or less, SVG safety, the two lockups unedited
   - `test_workflows.py` - every workflow, `dependabot.yml` and the ruleset files
 - `.claude/settings.json` - shared Claude Code permissions (deny and ask rules, no allow
   rules) and the sandbox; agents never edit it. `sandbox.network.strictAllowlist` is not in
@@ -33,6 +35,7 @@ Python core. Read these before changing anything:
   text-matched rules limit it. See ADR-0024.
 - `.github/` - `workflows/` (see CI below), `dependabot.yml`, `rulesets/` (ruleset JSON for the
   owner to apply; agents never apply it), `pull_request_template.md`
+- `docs/readme/` - README images and the demo tape; checked by tests/test_readme.py
 - `docs/decisions/` - one record per significant design choice; `CHANGELOG.md` - notable changes
 
 ## CI
@@ -66,9 +69,25 @@ the version CI pins:
 - Run every `gh` command on its own: no `cd`, `&&`, `;`, pipes or redirects. You
   already start in the repo. Only a plain `gh` call runs outside the sandbox, where it
   can read its login.
+- Push a branch with `git push origin <branch>`. Never use `-u` or `--set-upstream`: the
+  sandbox can't write `.git/config`, so the push fails.
+- A test that needs a pseudo-terminal (pty) skips outside CI, with the reason in the skip
+  message, and runs in CI. The sandbox can't allocate a pty.
+- A script that starts a browser outside the e2e container (for example a screenshot
+  script) is run by the owner in a plain Terminal after reading it. The sandbox can't start
+  Chromium on macOS. Say so in the plan; don't try it.
+- Don't add `sandbox.network.allowLocalBinding` unless this repo's tests start a local
+  server; if they do, propose it in the plan with a decisions row.
+- When a planned change first adds a Python package or `docs/PRD.md` to a repo that had
+  none, a GUI, a GitHub Pages site, a release workflow or the first release, or an AWS
+  deploy or `infra/`, say in the plan that a baseline re-audit is due and name the controls
+  that start to apply. The owner decides when to run it.
 - **Python 3.14 and uv (ADR-0013).** Set up with `uv sync --all-extras`.
   Change dependencies with `uv add` or `uv lock` and commit `uv.lock` with
   `pyproject.toml`; CI's `uv sync --locked` fails if they disagree.
+- Keep `exclude-newer` as the first key under `[tool.uv]`; never remove or loosen it to get
+  a newer version. If a security fix is newer than 7 days, propose a per-package
+  `exclude-newer-package` override and a decisions row, and stop for the owner.
 - **Before every commit**, run and pass `make check`: `uv run ruff check .`,
   `uv run ruff format --check .`, `uv run mypy` and `uv run pytest`. CI runs
   the same checks.

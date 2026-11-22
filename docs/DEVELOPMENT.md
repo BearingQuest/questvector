@@ -60,7 +60,7 @@ change the pin, and check `uv build` still succeeds with no warnings.
 Run all of these before opening a pull request:
 
 ```bash
-uv run pytest                                     # 289 tests: 285 run, 4 live tests skipped (24 more skip without [llm])
+uv run pytest                                     # the whole suite; 4 live tests skip unless turned on (24 more skip without [llm])
 uv run pytest --cov=questvector                   # fails below 90% line coverage
 uv run mypy                                       # strict type check of questvector; expect "no issues found"
 uv run ruff check .                               # lint; expect "All checks passed!"

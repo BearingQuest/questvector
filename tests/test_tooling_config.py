@@ -111,3 +111,21 @@ def test_proc_py_holds_the_only_s603_noqa() -> None:
         if "noqa: S603" in path.read_text(encoding="utf-8") and path.name != Path(__file__).name
     ]
     assert holders == ["_proc.py"]
+
+
+def _tool_uv_lines() -> list[str]:
+    lines = (ROOT / "pyproject.toml").read_text(encoding="utf-8").splitlines()
+    return lines[lines.index("[tool.uv]") + 1 :]
+
+
+def test_exclude_newer_is_the_first_key_under_tool_uv() -> None:
+    # Semgrep reads the table only up to the first bracket, so nothing with a
+    # bracket may sit between the header and this key (ADR-0026).
+    keys = [line for line in _tool_uv_lines() if re.match(r"[A-Za-z_-]+\s*=", line)]
+    assert keys[0] == 'exclude-newer = "7 days"'
+    above = _tool_uv_lines()[: _tool_uv_lines().index(keys[0])]
+    assert not any("[" in line or "]" in line for line in above)
+
+
+def test_lock_records_the_seven_day_span() -> None:
+    assert 'exclude-newer-span = "P7D"' in (ROOT / "uv.lock").read_text(encoding="utf-8")
