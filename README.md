@@ -1,9 +1,49 @@
-# 🚀 QuestVector
-### *This is a proof of concept project. Narrative generation has been tested live only with Ollama (gemma4:12b-it-q4_K_M) and Anthropic (claude-sonnet-5-5, 5 Nov 2026, synthetic data); OpenAI and Gemini are tested with mocks only. Use at your own risk*
-### *Command your job search with a local-only, privacy-first career flight deck. Score your career history against job descriptions, find the gaps, and own your career data.*
+<p align="center">
+  <a href="https://bearingquest.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/readme/bearing-quest-lockup-on-dark.svg">
+      <img alt="Bearing Quest" src="docs/readme/bearing-quest-lockup-on-light.svg" width="220">
+    </picture>
+  </a>
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING_TEMPLATES.md)
+<h1 align="center">QuestVector</h1>
+
+<p align="center">
+  A local-first career-management CLI and desktop app.<br>
+  Part of the <a href="https://bearingquest.com">Bearing Quest</a> project family.
+</p>
+
+<p align="center">
+  <a href="https://github.com/BearingQuest/questvector/actions/workflows/tests.yml"><img alt="Tests status" src="https://github.com/BearingQuest/questvector/actions/workflows/tests.yml/badge.svg?branch=main"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/BearingQuest/questvector"><img alt="OpenSSF Scorecard" src="https://api.scorecard.dev/projects/github.com/BearingQuest/questvector/badge"></a>
+  <img alt="Status: proof of concept" src="https://img.shields.io/badge/status-proof_of_concept-7A4A00">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-1B365D"></a>
+  <img alt="Python 3.14" src="https://img.shields.io/badge/python-3.14-1B365D">
+  <a href="CONTRIBUTING_TEMPLATES.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
+</p>
+
+> [!WARNING]
+> This is a proof of concept project. Narrative generation has been tested live only with Ollama (gemma4:12b-it-q4_K_M) and Anthropic (claude-sonnet-5-5, 5 Nov 2026, synthetic data); OpenAI and Gemini are tested with mocks only. Use at your own risk.
+
+*Command your job search with a local-only, privacy-first career flight deck. Score your career history against job descriptions, find the gaps, and own your career data.*
+
+<img alt="Terminal demo: qv sync-ast scores a synthetic dossier against a job description and lists coverage per category, gaps and weak categories." src="docs/readme/demo.gif" width="720">
+
+```mermaid
+flowchart LR
+  subgraph Mac["Your computer"]
+    W["Workspace folder<br/>Capabilities, Chronology, Impact"] --> M["Matcher and<br/>mission template"]
+    J["Job description"] --> M
+    M --> S["Score, gaps and<br/>weak categories"]
+    S --> E["PDF or DOCX export"]
+    S -. "only when you ask" .-> N["Narrative generation"]
+    V[("Encrypted vault<br/>provider and API key")] --> N
+    N --> OL["Local Ollama"]
+    N --> E
+  end
+  N -.-> CLOUD["Anthropic, OpenAI<br/>or Gemini API"]
+```
 
 QuestVector is an open-source, local-first career management platform built for experienced IT professionals (5–10+ years).
 
@@ -116,7 +156,7 @@ Matching is by keyword, so use the terms a job description would use (for exampl
 The test tools come with the contributor setup (uv; see [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)):
 ```bash
 uv sync --all-extras
-uv run pytest                                   # 289 tests
+uv run pytest                                   # the whole suite; live tests skip unless turned on
 uv run pytest --cov=questvector --cov-report=term-missing
 ```
 24 of the tests exercise the cloud AI providers and need their SDKs installed (`[llm]`); without them those tests skip with the reason shown. Opt-in live tests run against a local Ollama server and against remote providers; they're skipped unless you turn them on (see `docs/DEVELOPMENT.md`). GitHub Actions runs the suite, type checks, and lint on every pull request. Three further workflows aren't required checks: a daily dependency audit, an OpenSSF Scorecard analysis, and a Claude review of each pull request ([ADR-0022](docs/decisions/0022-scheduled-audit-scorecard-and-claude-review.md)). Linting, type checks, and the full contributor workflow are in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).

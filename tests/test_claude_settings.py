@@ -307,6 +307,44 @@ def test_agents_md_names_the_managed_settings_for_strict_allowlist() -> None:
     assert "/Library/Application Support/ClaudeCode/managed-settings.json" in _agents_text()
 
 
+def test_agents_md_forbids_upstream_flags_on_push() -> None:
+    # The sandbox can't write .git/config, so `git push -u` fails.
+    text = _agents_text()
+    assert "Push a branch with `git push origin <branch>`." in text
+    assert "Never use `-u` or `--set-upstream`" in text
+
+
+def test_agents_md_says_pty_tests_skip_outside_ci() -> None:
+    text = _agents_text()
+    assert "A test that needs a pseudo-terminal (pty) skips outside CI" in text
+    assert "with the reason in the skip message, and runs in CI." in text
+
+
+def test_agents_md_leaves_browser_scripts_to_the_owner() -> None:
+    text = _agents_text()
+    assert "is run by the owner in a plain Terminal after reading it." in text
+    assert "The sandbox can't start Chromium on macOS." in text
+
+
+def test_agents_md_limits_allow_local_binding() -> None:
+    text = _agents_text()
+    assert "Don't add `sandbox.network.allowLocalBinding` unless this repo's tests start" in text
+    assert "propose it in the plan with a decisions row." in text
+
+
+def test_agents_md_asks_for_a_baseline_re_audit_plan() -> None:
+    text = _agents_text()
+    assert "say in the plan that a baseline re-audit is due" in text
+    assert "name the controls that start to apply." in text
+
+
+def test_agents_md_keeps_exclude_newer_first_and_tight() -> None:
+    text = _agents_text()
+    assert "Keep `exclude-newer` as the first key under `[tool.uv]`" in text
+    assert "never remove or loosen it to get a newer version." in text
+    assert "propose a per-package `exclude-newer-package` override and a decisions row" in text
+
+
 def test_claude_md_imports_agents_md() -> None:
     lines = (REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8").splitlines()
     assert lines[0] == "@AGENTS.md"

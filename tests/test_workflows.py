@@ -393,9 +393,15 @@ def test_claude_review_turns_the_sandbox_off_and_keeps_one_tool() -> None:
     assert args[args.index("--allowedTools") + 1 :] == [
         "mcp__github_inline_comment__create_inline_comment"
     ]
-    assert args.count("--settings") + args.count("--allowedTools") == len(
-        [a for a in args if a.startswith("--")]
-    )
+    assert [a for a in args if a.startswith("--")] == ["--model", "--settings", "--allowedTools"]
+
+
+def test_claude_review_pins_an_exact_model() -> None:
+    # The review model changes only through a reviewed pull request (ADR-0026), and
+    # an exact model ID, not an alias, so the reviewer can't change underneath us.
+    args = shlex.split(_review_action()["claude_args"])
+    assert args.count("--model") == 1
+    assert args[args.index("--model") + 1] == "claude-sonnet-5-5"
 
 
 def test_new_workflows_are_not_required_checks() -> None:

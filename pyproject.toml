@@ -53,11 +53,11 @@ audit = ["pip-audit==2.10.1"]
 qv = "questvector.cli:main"
 
 [tool.uv]
-# The version CI pins in setup-uv; older uv may write an incompatible lock.
-required-version = ">=0.13.1"
 # Lock only releases at least 7 days old, matching Dependabot's cooldown, so
 # a compromised release has time to be caught and pulled first (ADR-0013).
 exclude-newer = "7 days"
+# The version CI pins in setup-uv; older uv may write an incompatible lock.
+required-version = ">=0.13.1"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
