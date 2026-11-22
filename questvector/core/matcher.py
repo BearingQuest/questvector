@@ -7,8 +7,10 @@ the Stage 1 blueprint, this implementation documents its own algorithm
 rather than guessing at an undisclosed one:
 
 Algorithm
-    1. The job description and the dossier are both reduced to keyword sets
-       via :func:`questvector.core.markdown_parser.tokenize`.
+    1. The job description and the dossier are both reduced to normalized
+       keyword sets via :func:`questvector.core.markdown_parser.tokenize`
+       (variants such as "CI/CD", "SOC 2" and "K8s" map to one form, as do the
+       template's own keywords when it is loaded; ADR-0027).
     2. For each weighted category in the active :class:`MissionTemplate`:
         a. ``relevant`` = the category's own keywords that also appear in
            the JD (falling back to *all* JD keywords if the category

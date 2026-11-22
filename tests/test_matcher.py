@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from itertools import pairwise
+from pathlib import Path
+
 import pytest
 
+import questvector
 from questvector.core.markdown_parser import tokenize
 from questvector.core.matcher import parse_job_description, run_match
 from questvector.core.models import (
@@ -13,7 +17,10 @@ from questvector.core.models import (
     MissionTemplate,
     TemplateCategory,
 )
+from questvector.core.templates import load_template
 from questvector.exceptions import MatchEngineError
+
+_STARTER_DIR = Path(questvector.__file__).parent / "data" / "starter_templates"
 
 
 def _template(*categories: TemplateCategory, **kwargs: object) -> MissionTemplate:
@@ -208,3 +215,101 @@ def test_run_match_weak_category_triggers_warning_alert_even_without_gaps_or_red
 
     assert result.weak_categories == ("cloud",)
     assert result.alert_level == AlertLevel.WARNING
+
+
+def _starter(template_id: str) -> MissionTemplate:
+    return load_template(_STARTER_DIR / f"{template_id}.qv-mission.yaml")
+
+
+def _dossier_from(*bullets: str) -> Dossier:
+    return Dossier(
+        capabilities=tuple(Capability(domain="D", text=b, keywords=tokenize(b)) for b in bullets)
+    )
+
+
+def test_run_match_variant_spellings_match_starter_template_keywords() -> None:
+    """R4: the posting, the dossier and the template meet on one form of each keyword."""
+    jd = parse_job_description("Needs CI/CD, SOC 2, ISO 27001, K8s and on-call.", source="test")
+    dossier = _dossier_from(
+        "Built CI-CD pipelines.",
+        "Passed a SOC2 audit and ISO27001 certification.",
+        "Ran Kubernetes clusters with an on call rotation.",
+    )
+
+    result = run_match(dossier, jd, _starter("devops-senior-mgr"))
+
+    assert result.gaps == ()
+    matched = {k for c in result.category_scores for k in c.matched_keywords}
+    assert {"cicd", "soc2", "iso27001", "kubernetes", "oncall"} <= matched
+
+
+def test_run_match_soc_2_no_longer_matches_the_soc_keyword() -> None:
+    """R4: "SOC 2" is the compliance report, not a security operations center."""
+    jd = parse_job_description("Needs SOC 2 and incident response", source="test")
+
+    result = run_match(_dossier_from("Ran a SOC 2 program"), jd, _starter("cybersec-ops-director"))
+
+    cybersec_incident = next(c for c in result.category_scores if c.name == "incident_response")
+    assert "soc" not in cybersec_incident.matched_keywords
+    assert "soc" not in cybersec_incident.gap_keywords
+
+
+def test_run_match_sentence_final_keyword_matches() -> None:
+    """R4: a keyword at the end of a dossier bullet still matches the posting."""
+    jd = parse_job_description("Needs Terraform experience", source="test")
+    template = _template(TemplateCategory(name="cloud", weight=1.0, keywords=("terraform",)))
+
+    result = run_match(_dossier_from("Automated provisioning with Terraform."), jd, template)
+
+    assert result.g_force_score == 100.0
+
+
+def test_run_match_negated_skill_is_still_counted_known_limitation() -> None:
+    """R4: known limitation, backlog item 1: a negated skill counts as a match.
+
+    Keywords are a bag of tokens, so "no hands-on Kubernetes" matches Kubernetes.
+    This pins today's behavior. The fix is undecided (a warning would leave the
+    keyword counted; an exclusions section would not), so a deliberate fix
+    updates this test.
+    """
+    dossier = _dossier_from(
+        "No hands-on Kubernetes",
+        "Never used HashiCorp Vault",
+        "Terraform training only",
+    )
+    jd = parse_job_description("Needs Kubernetes, Terraform and Vault", source="test")
+    template = _template(
+        TemplateCategory(name="cloud", weight=1.0, keywords=("kubernetes", "terraform", "vault"))
+    )
+
+    result = run_match(dossier, jd, template)
+
+    assert result.g_force_score == 100.0
+    assert result.gaps == ()
+
+
+def test_run_match_large_dossier_saturates_score_known_limitation() -> None:
+    """R4: known limitation, backlog item 1: a large dossier scores 100.0 on any posting.
+
+    A keyword counts if it appears anywhere in the dossier, so a dossier that
+    holds the template's vocabulary covers an on-target and an off-target
+    posting equally. This pins today's behavior; a deliberate formula change
+    (a new ADR superseding ADR-0006) updates this test.
+    """
+    template = _starter("devops-senior-mgr")
+    vocabulary = sorted({k for c in template.categories for k in c.keywords})
+    bullets = [f"Led {a} and {b} work for the team" for a, b in pairwise(vocabulary)]
+    bullets += [f"Delivered project {i} with automation" for i in range(120 - len(bullets))]
+    dossier = _dossier_from(*bullets)
+    on_target = parse_job_description(
+        "Senior DevOps Manager: AWS, Terraform, Kubernetes, Jenkins, monitoring, incident, "
+        "mentoring, hiring, budget, compliance, vulnerability.",
+        source="test",
+    )
+    off_target = parse_job_description(
+        "Analyst: compliance, hardening, iam, sla, uptime, budget, cloudformation.", source="test"
+    )
+
+    assert len(bullets) >= 100
+    assert run_match(dossier, on_target, template).g_force_score == 100.0
+    assert run_match(dossier, off_target, template).g_force_score == 100.0

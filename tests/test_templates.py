@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+import questvector
 from questvector.core.models import MissionTemplate, TemplateCategory
 from questvector.core.templates import (
     find_template_file,
@@ -376,3 +377,47 @@ def test_repository_templates_are_valid_and_the_community_folder_exists() -> Non
     assert root / "boilerplate.qv-mission.yaml" in files
     for path in files:
         assert validate_template_file(path).valid, path
+
+
+def test_load_template_normalizes_keyword_variants(tmp_path: Path) -> None:
+    """R2: template keywords are normalized the same way as posting and dossier text."""
+    path = _write(
+        tmp_path,
+        "categories:\n  - name: a\n    weight: 1.0\n    keywords: [CI/CD, SOC 2, K8s, aws]\n",
+    )
+
+    assert load_template(path).categories[0].keywords == ("cicd", "soc2", "kubernetes", "aws")
+
+
+def test_load_template_keyword_with_two_tokens_raises(tmp_path: Path) -> None:
+    """R2: a keyword that isn't exactly one token after normalization is rejected."""
+    path = _write(
+        tmp_path,
+        "mission_id: m1\ncategories:\n  - name: a\n    weight: 1.0\n"
+        "    keywords: [active directory]\n",
+    )
+
+    with pytest.raises(ValidationError, match=r"m1.*active directory"):
+        load_template(path)
+
+
+def test_load_template_keywords_that_collapse_to_one_are_deduplicated(tmp_path: Path) -> None:
+    """R2: keywords that normalize to the same form collapse to a single keyword."""
+    path = _write(
+        tmp_path,
+        "categories:\n  - name: a\n    weight: 1.0\n    keywords: [cicd, CI/CD, ci-cd, aws]\n",
+    )
+
+    assert load_template(path).categories[0].keywords == ("cicd", "aws")
+
+
+def test_every_starter_template_keyword_is_already_normalized() -> None:
+    """R2: no starter keyword changes on load, so templates and the normalizer stay in sync."""
+    starter_dir = Path(questvector.__file__).parent / "data" / "starter_templates"
+    files = list_template_files(starter_dir)
+    assert files
+    for path in files:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        declared = [tuple(c.get("keywords", [])) for c in raw["categories"]]
+        loaded = [c.keywords for c in load_template(path).categories]
+        assert loaded == declared, path.name

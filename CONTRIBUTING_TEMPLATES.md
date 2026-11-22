@@ -49,16 +49,18 @@ metadata:
 # are checked against both the target job description and the candidate's
 # dossier; "weight" controls how much that category contributes to the
 # overall G-Force match score. All weights must sum to 1.00.
+# Each keyword must be a single word (for example "kubernetes", "soc2"); a
+# phrase such as "active directory" can't match and fails validation.
 categories:
   - name: "primary_domain"
     weight: 0.40
-    keywords: ["Primary Skill 1", "Primary Skill 2", "Core Domain Standard"]
+    keywords: ["primaryskill1", "primaryskill2", "coredomainstandard"]
   - name: "leadership"
     weight: 0.30
     keywords: ["mentoring", "budget", "stakeholders"]
   - name: "secondary_domain"
     weight: 0.30
-    keywords: ["Adjacent Skill 1", "Adjacent Skill 2"]
+    keywords: ["adjacentskill1", "adjacentskill2"]
   # Total across all categories must sum to 1.00
 
 # Optional: JD-side red flags and per-category gap sensitivity.
