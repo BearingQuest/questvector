@@ -124,6 +124,8 @@ Acceptance criteria use EARS-style phrasing.
 - The system SHALL parse the three dossier files into structured data and
   keyword sets, and SHALL report a parse error with the file name rather than
   failing silently.
+- Keyword sets SHALL be normalized (ADR-0027), and a role title in a
+  Chronology heading SHALL count as a keyword.
 
 ### 5.2 Matching
 
@@ -136,6 +138,8 @@ Acceptance criteria use EARS-style phrasing.
 **R4 — Scoring rules.** **Built.**
 - The score SHALL follow the rules in `questvector/core/matcher.py` and spec
   Section 5. The same inputs SHALL always produce the same score.
+- Job-description text, dossier text and template keywords SHALL be normalized
+  the same way before they are compared (ADR-0027).
 - A category with nothing relevant in the job description SHALL NOT lower
   the score.
 

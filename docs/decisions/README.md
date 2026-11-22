@@ -17,7 +17,7 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0003](0003-reconciled-template-schema.md) | One reconciled mission-template schema | Accepted | 2026-09-09 |
 | [0004](0004-data-driven-llm-provider-registry.md) | Data-driven LLM provider registry | Accepted | 2026-09-15 |
 | [0005](0005-ollama-over-plain-http.md) | Ollama called over plain HTTP, no SDK | Accepted | 2026-09-15 |
-| [0006](0006-independent-g-force-formula.md) | G-Force formula defined independently of the spec | Accepted | 2026-09-09 |
+| [0006](0006-independent-g-force-formula.md) | G-Force formula defined independently of the spec | Accepted; keyword inputs normalized by 0027 | 2026-09-09 |
 | [0007](0007-ci-validates-all-templates.md) | CI validates every template, not only changed ones | Accepted | 2026-10-15 |
 | [0008](0008-ci-results-in-run-summary.md) | CI reports results in the run summary, not a PR comment | Accepted | 2026-10-15 |
 | [0009](0009-bundled-starter-templates-only.md) | Bundled package templates are the only starter source | Accepted | 2026-10-15 |
@@ -38,3 +38,4 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0024](0024-agents-md-and-sandboxed-settings.md) | AGENTS.md holds the agent rules, and the shared settings add a sandbox | Accepted | 2026-11-15 |
 | [0025](0025-meets-engineering-baseline-2-0.md) | Meets engineering baseline 2.0, with the recorded departures | Accepted | 2026-11-15 |
 | [0026](0026-readme-presentation-and-november-carry-overs.md) | README presentation and the November carry-overs | Accepted | 2026-11-22 |
+| [0027](0027-keyword-normalization.md) | One keyword normalization for postings, dossiers, and templates | Accepted | 2026-11-22 |

@@ -25,11 +25,20 @@ or drift. Known starting points:
   been tested" everywhere: the README banner, status table, and
   `docs/QuestVector_Spec.pdf`. Replace it with what was actually verified,
   naming the providers tested live (for example Gemini and a local Ollama
-  model). Providers still tested only with mocks stay labeled that way. Keep
-  "proof of concept" until the tool has been used in a real job search;
-  passing tests aren't real-world use. Resume and dossier wording should change
-  in step: update the "published as a proof of concept" project line only
-  after reviewing it in the Applying for Jobs project.
+  model). Providers still tested only with mocks stay labeled that way.
+  Resume and dossier wording should change in step: update the "published as a
+  proof of concept" project line only after reviewing it in the Applying for
+  Jobs project.
+  Exit condition (revised 13 Nov 2026, owner decision; replaces the 15 Oct
+  'real job search' condition): when the remaining item 1 work and item 5 are
+  done, the owner runs QuestVector on a set of his past applications and
+  compares its gap lists and narratives with the materials Claude produced for
+  them, against pass criteria written before the run. Postings and materials
+  stay in `~/career-workspace`; the repo records only the method and a summary
+  (number of postings, pass or fail per criterion, no employer names). If it
+  passes, the README drops "proof of concept" and says what was verified,
+  without claiming production or real-world use. Providers tested only with
+  simulated responses stay labeled that way.
 - **Vault.** ✅ Done under item 13 (28 Oct 2026,
   [ADR-0015](decisions/0015-pbkdf2-1m-iterations-vault-v2.md)). Review key
   derivation, file permissions, and how the passphrase or key is supplied
@@ -38,11 +47,16 @@ or drift. Known starting points:
   migration for existing vaults (see ADR-0002).
 - **LLM data flow.** Confirm exactly what dossier content is sent to remote
   providers and that the user sees it before it leaves the machine.
-- **Keyword normalization in matching.** Found 15 Oct: the tokenizer turns
-  "CI/CD" in a job description into `ci/cd`, but the DevOps starter template's
-  keyword is `cicd`, so they never match. Similar risks: "SOC 2" vs `soc2`,
-  "K8s" vs `kubernetes`. Review tokenizer normalization and the starter
-  templates' keyword forms together; add tests for common variants.
+- **Keyword normalization in matching.** ✅ Done 22 Nov 2026
+  ([ADR-0027](decisions/0027-keyword-normalization.md)). Found 15 Oct: the
+  tokenizer turned "CI/CD" in a job description into `ci/cd`, but the DevOps
+  starter template's keyword is `cicd`, so they never matched. Same for "SOC 2"
+  (only `soc`) vs `soc2`, "ISO 27001" vs `iso27001`, "K8s" vs `kubernetes`,
+  "on call" vs `oncall`. Also found 22 Nov: a keyword at the end of a sentence
+  or bullet kept its full stop (`kubernetes.`), so it never matched. One
+  normalization now applies to posting text, dossier text and template
+  keywords; tests cover the variants and near misses. Known limit: singular
+  and plural forms ("pipeline", "pipelines") don't match each other.
 - **Negative statements match as keywords.** Found 18 Oct while converting
   a real dossier: matching is by keyword, so a bullet such as "no hands-on
   Kubernetes" or "never used HashiCorp Vault" counts as a Kubernetes or
@@ -53,10 +67,31 @@ or drift. Known starting points:
   ("no", "not", "never", "training only") next to a keyword; or support an
   explicit exclusions section that matching ignores. Add a test with a
   negated skill either way.
-- **Role titles in headings may not count toward matching.** Found 18 Oct
-  with a synthetic dossier: the match reported `manager` as a gap although
-  the role headings say "Engineering Manager". Check whether the parser
-  excludes `##` headings from the keyword set, and add a test.
+  **Still open (checked 22 Nov 2026):** a characterization test in
+  `tests/test_matcher.py` pins today's behavior: "No hands-on Kubernetes" and
+  "Terraform training only" both count as matches, and the bullets reach the
+  narrative prompt unchanged. The fix is undecided; a warning keeps the keyword
+  counted, an exclusions section (the only option that also keeps the text out
+  of the narrative) does not. A deliberate fix updates that test.
+- **Role titles in headings may not count toward matching.** ✅ Done 22 Nov
+  2026. Found 18 Oct with a synthetic dossier: the match reported `manager` as a
+  gap although the role headings say "Engineering Manager". Confirmed: the
+  parser tokenized bullets only. Chronology headings now count (the role title
+  is the evidence of the role); Capabilities and Impact headings don't, since
+  they are labels the user chose, not claims.
+- **Score saturation.** Found 27 Oct 2026 on a real 122-bullet dossier, which
+  scored 100.0% on a real posting with `devops-senior-mgr`; reproduced 22 Nov
+  on synthetic data. A keyword matches if it appears anywhere in the dossier and
+  the denominator is only the posting's keywords that the template also lists,
+  so a large dossier covers everything and the score stops telling postings
+  apart (a synthetic 120-bullet dossier scores 100.0 on both an on-target and
+  an off-target posting). **Still open.** A characterization test in
+  `tests/test_matcher.py` pins this. Options: show "N of M keywords asked" next
+  to the score (display only, no ADR); weight by recency (needs dates in
+  headings); count posting keywords outside the template's categories; require
+  more than one mention; count a keyword fully only when a Chronology or Impact
+  bullet shows it, not only the Capabilities list. Any formula change
+  supersedes ADR-0006 with a new ADR. Recommended: the display change first.
 - **Spec traceability.** Code cites `MASTER_DEVELOPER_SPEC.pdf` section numbers;
   that file isn't in the repo. Decide whether to add it, or re-point citations
   to `docs/QuestVector_Spec.pdf`.
@@ -423,6 +458,8 @@ Needs risk-trainer's front-end code (templates and CSS), not just its PRD,
 for a side-by-side comparison. Pairs with PRD R19 (Playwright tests for each
 tab) and backlog item 6.
 
+README: when this work makes the GUI usable, add the screenshots described in item 20.
+
 ## 16. Browser-only app
 Decided 28 Oct 2026 ([ADR-0016](decisions/0016-browser-app-static-pages.md)):
 a browser app for less-technical users who can't install software. It's
@@ -462,6 +499,7 @@ Work in phases, one pull request each:
     guardrail, not a control (ADR-0016).
   - Update `SECURITY.md` when the site goes live, putting the site in scope
     for reports.
+  - README: item 20's screenshots and diagram update.
   - Owner's manual steps:
     1. In the repository settings, set the Pages source to **GitHub
        Actions**.
@@ -584,3 +622,33 @@ what a release contains without installing it.
 - **Open question for the build plan** (recorded, not answered): whether the
   optional AI-provider extras belong in the SBOM.
 - GitHub's dependency graph "Export SBOM" (SPDX) stays available on demand.
+
+## 20. README visuals for the GUI
+Decided 22 Nov 2026 (owner). The README's demo is a terminal GIF of the CLI
+(`docs/readme/demo.gif`, PR #51), because the desktop interface is due to be
+replaced (item 15). Once the GUI is usable, the README shows it too, alongside
+the CLI demo, not instead of it.
+
+When: in the pull request that makes the GUI usable (the owner decides which):
+the item 15 UI pull request that ships the redesigned desktop window, or item
+16 phase (e) if the browser app goes live first. Repeat for the other one when
+it lands.
+
+What:
+- A light and dark screenshot pair of the real app, not the mockups in
+  `docs/design/mockups/`, shown through `<picture>` with an `<img>` fallback
+  and alt text, with the files in `docs/readme/` (engineering standards,
+  "README presentation"). The CLI GIF and its tape stay.
+- Synthetic data only: the fixture dossier in `tests/fixtures/live_narrative/`;
+  no vault, no keys, no network, nothing from `~/career-workspace`.
+- A committed screenshot script writes the pair. The owner runs it in a plain
+  Terminal after reading it, because the sandbox can't start a browser on macOS
+  (AGENTS.md). Any new tool it needs, for example Playwright, is proposed in
+  that pull request's plan with its cost and a decision record.
+- An AGENTS.md rule, with a test: a pull request that changes a screen the
+  README shows re-runs the script in the same pull request.
+- `tests/test_readme.py` already checks alt text, image sources, `<picture>`
+  fallbacks, unused files and the 5 MB cap; no change expected.
+- When the browser app goes live, the README's Mermaid diagram also shows the
+  GitHub Pages site and that data stays in the browser.
+- The owner checks the README in GitHub's light and dark themes before merging.

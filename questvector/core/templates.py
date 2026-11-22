@@ -55,6 +55,7 @@ import yaml
 
 from questvector.config import WEIGHT_SUM_TARGET, WEIGHT_SUM_TOLERANCE
 from questvector.core.models import MissionTemplate, TemplateCategory
+from questvector.core.normalize import normalized_tokens
 from questvector.exceptions import ValidationError
 
 #: Supported template file extensions, longest/most-specific first.
@@ -137,8 +138,38 @@ def _coerce_category(raw: Any, *, template_id: str) -> TemplateCategory:
             "Mission template category 'keywords' must be a list",
             context={"template_id": template_id, "category": name},
         )
-    keywords = tuple(str(keyword).lower() for keyword in keywords_raw)
+    keywords = tuple(
+        dict.fromkeys(
+            _normalize_keyword(keyword, template_id=template_id, category=name)
+            for keyword in keywords_raw
+        )
+    )
     return TemplateCategory(name=name, weight=weight, keywords=keywords)
+
+
+def _normalize_keyword(raw: Any, *, template_id: str, category: str) -> str:
+    """Normalize one template keyword to the single form the matcher compares.
+
+    Args:
+        raw: The keyword as written in the template.
+        template_id: The owning template's id, used in the error.
+        category: The owning category's name, used in the error.
+
+    Returns:
+        The normalized keyword (ADR-0027), so "CI/CD" is stored as ``cicd``.
+
+    Raises:
+        ValidationError: If the keyword does not normalize to exactly one token
+            (a multi-word keyword could never match a single token).
+    """
+    tokens = normalized_tokens(str(raw))
+    if len(tokens) != 1:
+        raise ValidationError(
+            f"Mission template '{template_id}' keyword {str(raw)!r} must be exactly one "
+            "word after normalization",
+            context={"template_id": template_id, "category": category, "keyword": str(raw)},
+        )
+    return tokens[0]
 
 
 def _string_list(raw: Any, *, field_name: str, template_id: str) -> tuple[str, ...]:

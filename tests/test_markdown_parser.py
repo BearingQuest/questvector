@@ -122,3 +122,94 @@ def test_parse_dossier_raises_if_present_file_is_malformed(
 
     with pytest.raises(ParseError):
         parse_dossier(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("CI/CD", "cicd"),
+        ("CI-CD", "cicd"),
+        ("CICD", "cicd"),
+        ("CI CD", "cicd"),
+        ("SOC 2", "soc2"),
+        ("SOC-2", "soc2"),
+        ("SOC2", "soc2"),
+        ("ISO 27001", "iso27001"),
+        ("ISO/IEC 27001:2022", "iso27001"),
+        ("ISO27001", "iso27001"),
+        ("K8s", "kubernetes"),
+        ("Kubernetes", "kubernetes"),
+        ("on-call", "oncall"),
+        ("on call", "oncall"),
+        ("TCP/IP", "tcpip"),
+        ("cloud-native", "cloudnative"),
+        ("Cloud Native", "cloudnative"),
+        ("PCI-DSS", "pci"),
+        ("Infrastructure as Code", "iac"),
+    ],
+)
+def test_tokenize_maps_common_variants_to_one_form(text: str, expected: str) -> None:
+    """R2: common spellings of one term normalize to the same keyword."""
+    assert tokenize(text) == frozenset({expected})
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("SOC 20", {"soc"}),
+        ("k8sx", {"k8sx"}),
+        ("specific CD", {"specific", "cd"}),
+        ("socket 2", {"socket"}),
+        ("iso 270010", {"iso"}),
+    ],
+)
+def test_tokenize_phrase_rules_do_not_fire_inside_other_words(
+    text: str, expected: set[str]
+) -> None:
+    """R2: a phrase rule only fires on whole words, never inside another word."""
+    assert tokenize(text) == frozenset(expected)
+
+
+def test_tokenize_on_call_in_ordinary_prose_becomes_oncall() -> None:
+    """R2: accepted false positive (ADR-0027): "on call" in prose is read as oncall."""
+    assert "oncall" in tokenize("The team relies on call logs")
+
+
+def test_tokenize_drops_trailing_punctuation_from_the_last_word() -> None:
+    """R2: a keyword at the end of a sentence matches the same keyword mid-sentence."""
+    assert tokenize("Needs AWS and Kubernetes.") == frozenset({"needs", "aws", "kubernetes"})
+    assert tokenize("Terraform, AWS.") == frozenset({"terraform", "aws"})
+
+
+def test_tokenize_keeps_internal_and_meaningful_punctuation() -> None:
+    """R2: c++, c# and node.js are not damaged by trailing-punctuation stripping."""
+    assert tokenize("C++, C# and Node.js.") == frozenset({"c++", "c#", "node.js"})
+
+
+def test_parse_chronology_counts_role_title_words_in_heading(tmp_path: Path) -> None:
+    """R2: a role title in a Chronology heading counts as a keyword."""
+    path = tmp_path / "Chronology.md"
+    path.write_text(
+        "## Acme - Engineering Manager (2020-2023)\n- Led a team and ran on-call\n",
+        encoding="utf-8",
+    )
+
+    entries = parse_chronology(path)
+
+    assert "manager" in entries[0].keywords
+    assert "engineering" in entries[0].keywords
+    assert entries[0].heading == "Acme - Engineering Manager (2020-2023)"
+
+
+def test_parse_capabilities_and_impact_headings_do_not_count(tmp_path: Path) -> None:
+    """R2: Capabilities and Impact headings are labels, not claims, so they don't count."""
+    capabilities_path = tmp_path / "Capabilities.md"
+    capabilities_path.write_text("## Leadership\n- Ran a budget\n", encoding="utf-8")
+    impact_path = tmp_path / "Impact.md"
+    impact_path.write_text("## Cost Optimization\n- Cut monthly spend\n", encoding="utf-8")
+
+    capability = parse_capabilities(capabilities_path)[0]
+    statement = parse_impact(impact_path)[0]
+
+    assert "leadership" not in capability.keywords
+    assert "optimization" not in statement.keywords

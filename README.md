@@ -141,7 +141,7 @@ python -m questvector.desktop.app   # native HUD window (requires a display)
 | `Chronology.md` | a role, e.g. `## Acme Corp — Senior SRE Manager (2019–2024)` | responsibilities and achievements |
 | `Impact.md` | a grouping, e.g. `## Cost Reduction` | quantified results |
 
-Matching is by keyword, so use the terms a job description would use (for example, both "Kubernetes" and "K8s" if you have used both names).
+Matching is by keyword, so use the terms a job description would use. Common variants such as "K8s", "CI/CD" and "SOC 2" are matched to one form automatically ([ADR-0027](docs/decisions/0027-keyword-normalization.md)); singular and plural forms aren't, so "pipeline" and "pipelines" don't match each other.
 
 ### About the vault
 `qv vault set-key` (or the desktop Vault panel) stores your provider settings and API keys in `.questvector.vault` in the workspace, encrypted with a key derived from your passphrase ([ADR-0015](docs/decisions/0015-pbkdf2-1m-iterations-vault-v2.md)).

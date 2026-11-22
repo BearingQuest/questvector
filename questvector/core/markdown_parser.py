@@ -40,11 +40,11 @@ from pathlib import Path
 
 from questvector.config import STOPWORDS
 from questvector.core.models import Capability, ChronologyEntry, Dossier, ImpactStatement
+from questvector.core.normalize import normalized_tokens
 from questvector.exceptions import ParseError
 
 _HEADING_RE = re.compile(r"^#{2}\s+(?P<heading>.+?)\s*$")
 _BULLET_RE = re.compile(r"^\s*[-*•]\s+(?P<text>.+?)\s*$")
-_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.#/_-]*")
 _UNCATEGORIZED = "Uncategorized"
 _MIN_TOKEN_LEN = 2
 
@@ -57,15 +57,20 @@ def tokenize(text: str) -> frozenset[str]:
             etc.).
 
     Returns:
-        A frozenset of lowercased tokens with stopwords and single-character
-        tokens removed. This is intentionally a simple, dependency-free
+        A frozenset of normalized tokens with stopwords and single-character
+        tokens removed. Normalization (ADR-0027, see
+        :mod:`questvector.core.normalize`) lowercases, maps common variants
+        such as "CI/CD", "SOC 2" and "K8s" to one form, and drops trailing
+        punctuation. It is applied the same way to job descriptions, dossiers,
+        and template keywords. This is intentionally a simple, dependency-free
         heuristic (no stemming/lemmatization or POS tagging) — see
         :mod:`questvector.core.matcher` for how it is consumed and where its
         limitations are documented.
     """
-    tokens = (match.group(0).lower() for match in _TOKEN_RE.finditer(text))
     return frozenset(
-        token for token in tokens if len(token) >= _MIN_TOKEN_LEN and token not in STOPWORDS
+        token
+        for token in normalized_tokens(text)
+        if len(token) >= _MIN_TOKEN_LEN and token not in STOPWORDS
     )
 
 
@@ -180,7 +185,9 @@ def parse_chronology(path: Path) -> tuple[ChronologyEntry, ...]:
     """Parse a ``Chronology.md`` file into :class:`ChronologyEntry` entries.
 
     Each level-2 heading is treated as one role/timeframe entry, and its
-    bullets are that role's responsibilities/achievements.
+    bullets are that role's responsibilities/achievements. The heading's words
+    (the role title) count as keywords too; Capabilities and Impact headings
+    are labels, not claims, and do not.
 
     Args:
         path: Path to the Chronology Markdown file.
@@ -196,7 +203,7 @@ def parse_chronology(path: Path) -> tuple[ChronologyEntry, ...]:
     sections = _parse_sections(content, source_name=path.name)
     entries: list[ChronologyEntry] = []
     for heading, bullets in sections:
-        keywords: set[str] = set()
+        keywords: set[str] = set(tokenize(heading))
         for bullet in bullets:
             keywords |= tokenize(bullet)
         entries.append(
