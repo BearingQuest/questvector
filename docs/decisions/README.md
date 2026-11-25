@@ -39,3 +39,4 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0025](0025-meets-engineering-baseline-2-0.md) | Meets engineering baseline 2.0, with the recorded departures | Accepted | 2026-11-15 |
 | [0026](0026-readme-presentation-and-november-carry-overs.md) | README presentation and the November carry-overs | Accepted | 2026-11-22 |
 | [0027](0027-keyword-normalization.md) | One keyword normalization for postings, dossiers, and templates | Accepted | 2026-11-22 |
+| [0028](0028-review-comment-version-and-qc-post-env.md) | The review comment stops naming a version, and the key file is `~/.qc_post_env` | Accepted | 2026-11-25 |
