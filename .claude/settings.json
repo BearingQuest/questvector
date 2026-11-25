@@ -74,7 +74,7 @@
       "Bash(terraform destroy *)",
       "Bash(terraform * destroy)",
       "Bash(terraform * destroy *)",
-      "Read(~/.ai_post_env)",
+      "Read(~/.qc_post_env)",
       "Read(~/.aws/**)",
       "Read(~/.ssh/**)",
       "Read(~/.config/gh/**)",
@@ -116,7 +116,7 @@
     ],
     "filesystem": {
       "denyRead": [
-        "~/.ai_post_env",
+        "~/.qc_post_env",
         "~/.aws",
         "~/.ssh",
         "~/.config/gh",
