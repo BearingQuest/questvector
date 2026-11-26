@@ -81,7 +81,7 @@ shasum -a 256 -c SHA256SUMS --ignore-missing     # the wheel matches the publish
 gh attestation verify questvector-<version>-py3-none-any.whl --repo BearingQuest/questvector
 ```
 
-The second check needs the [GitHub CLI](https://cli.github.com/), signed in (`gh auth login`). It confirms the wheel was built by this repository's release workflow from a tagged commit. Releases after the move to BearingQuest are attested under `BearingQuest/questvector`; that command is unconfirmed until the first new release is verified.
+The second check needs the [GitHub CLI](https://cli.github.com/), signed in (`gh auth login`). It confirms the wheel was built by this repository's release workflow from a tagged commit. Releases after the move to BearingQuest are attested under `BearingQuest/questvector`; this command was verified on the v1.2.0 wheel, source archive and SBOM on 26 Nov 2026.
 
 **v1.1.0 is different.** It was signed before the move, and its certificate names the repository that signed it (`dustenatx/QuestVector`), which can't change. Its attestations are stored under the `dustenatx` account, so it verifies only while that account exists. Use this instead, for the wheel and the same for the source archive:
 

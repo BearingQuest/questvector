@@ -36,10 +36,11 @@ def test_ruff_is_pinned_in_the_dev_group_and_pyflakes_is_gone() -> None:
     assert not any(pin.lower().startswith("pyflakes") for pin in dev)
 
 
-def test_mypy_is_strict_for_the_whole_package_with_no_overrides() -> None:
+def test_mypy_is_strict_for_the_package_and_the_ci_scripts_with_no_overrides() -> None:
     mypy = pyproject()["tool"]["mypy"]
     assert mypy["strict"] is True
-    assert mypy["files"] == ["questvector"]
+    # scripts/ holds the weekly model check (ADR-0031); it is checked like the package.
+    assert mypy["files"] == ["questvector", "scripts"]
     assert "overrides" not in mypy
 
 

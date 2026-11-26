@@ -3,8 +3,9 @@
 ## Reporting a vulnerability
 
 Please report security issues privately through GitHub: on the repository's
-**Security** tab, choose **Report a vulnerability**. Don't open a public
-issue for a security problem.
+**Security** tab, choose **Report a vulnerability**, or go straight to
+<https://github.com/BearingQuest/questvector/security/advisories/new>.
+Don't open a public issue for a security problem.
 
 Include what you found, the steps to reproduce it, and the version or commit
 you tested. This is a one-person project, so replies may take a few days.
@@ -22,6 +23,6 @@ particular interest:
 
 ## Supported versions
 
-The latest release (currently 1.1.0) and the latest commit on `main` are
-supported. Older releases (1.0.0 and earlier) are not; upgrade to the latest
+The latest release (currently 1.2.0) and the latest commit on `main` are
+supported. Older releases (1.1.0 and earlier) are not; upgrade to the latest
 release.

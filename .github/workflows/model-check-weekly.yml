@@ -1,0 +1,48 @@
+name: "Model check (weekly)"
+
+# Weekly check that no default model in questvector/core/llm.py is deprecated
+# or shut down, read from each provider's public deprecation page. It opens or
+# updates one GitHub issue per problem and fails the run when it finds one, so
+# GitHub emails the owner. CI only: the app makes no new network call
+# (ADR-0001, ADR-0031). Not a required check (ADR-0011).
+# GitHub disables scheduled workflows in a public repo after 60 days with no
+# repository activity; re-enable it from the Actions tab if that happens.
+
+on:
+  schedule:
+    - cron: "17 8 * * 1" # Mondays 08:17 UTC, off the hour (top-of-hour runs can be delayed)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One check at a time; a manual run never cancels the scheduled one.
+concurrency:
+  group: model-check-weekly
+  cancel-in-progress: false
+
+jobs:
+  model-check-weekly:
+    name: Model check (weekly)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the repository
+      issues: write # open or update the problem issues
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Python 3.14 comes from uv, as the repo's own code needs it. No cache: a
+      # once-a-week job gains nothing from it, and it removes a cache-poisoning path.
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.1"
+          enable-cache: false
+      # The script uses only the standard library, so there is nothing to
+      # install. Page text never reaches a shell or an expression: the script
+      # parses it and writes the issues itself, with the run's own token.
+      - name: Check the default models
+        run: uv run --no-project --python 3.14 python -I scripts/check_default_models.py
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

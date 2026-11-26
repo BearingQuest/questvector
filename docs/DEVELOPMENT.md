@@ -131,9 +131,16 @@ What CI runs (`.github/workflows/`). Every job installs with uv from
   drafts, forks or Dependabot's: inline review comments only. It can't run
   on a pull request that changes its own file
   ([ADR-0022](decisions/0022-scheduled-audit-scorecard-and-claude-review.md)).
+- **Model check (weekly)** (`model-check-weekly.yml`), Mondays and on demand:
+  reads each remote provider's deprecation page and opens or updates one
+  GitHub issue when a default model in `questvector/core/llm.py` is
+  deprecated or shut down, or when a page can't be read; the run then fails.
+  `scripts/check_default_models.py` does the work and
+  `--dry-run` shows what it would do without a token
+  ([ADR-0031](decisions/0031-weekly-default-model-check.md)).
 
 Results appear in each run's summary on the pull request's Checks tab. All
-of these except Release and the last three are required checks on `main`
+of these except Release and the last four are required checks on `main`
 ([ADR-0011](decisions/0011-github-security-baseline.md)): a pull request
 can't merge until they pass, and it merges by squash only.
 
@@ -415,9 +422,9 @@ deleted.
    gh attestation verify sbom.cdx.json --repo BearingQuest/questvector
    ```
 
-   These are for releases built after the move to BearingQuest and are
-   unconfirmed until the first one is verified. v1.1.0 verifies differently;
-   see "Install from a release" in the README.
+   These are for releases built after the move to BearingQuest. They were
+   verified on the v1.2.0 wheel, sdist and SBOM on 26 Nov 2026. v1.1.0
+   verifies differently; see "Install from a release" in the README.
 5. Publish the draft (owner only; the release is immutable once published):
    `gh release edit vX.Y.Z --draft=false`, or Publish in the GitHub web UI.
 

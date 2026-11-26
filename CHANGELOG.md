@@ -13,6 +13,12 @@ record in [`docs/decisions/`](docs/decisions/).
 
 ## [Unreleased]
 
+### Added
+- Weekly check for retired default models ([ADR-0031](docs/decisions/0031-weekly-default-model-check.md), PRD R29, backlog item 18): `model-check-weekly.yml` (Mondays and on demand, never on pull requests, not a required check) runs `scripts/check_default_models.py`, which reads each remote provider's deprecation page and opens or updates one GitHub issue when a default in `questvector/core/llm.py` is deprecated or shut down, or when a page can't be read; the run then fails. Standard library only, no API keys, CI only: the app makes no new network call. `mypy` now checks `scripts/` too.
+
+### Changed
+- Docs: the `gh attestation verify --repo BearingQuest/questvector` steps in the README and `docs/DEVELOPMENT.md` are confirmed (verified on the v1.2.0 wheel, sdist and SBOM, 26 Nov 2026), so "unconfirmed" is gone; `SECURITY.md` names 1.2.0 as the supported release and links the private-report page directly; `AGENTS.md` and `docs/DEVELOPMENT.md` list the new workflow as not required.
+
 ## [1.2.0] - 2026-11-26
 
 **Vault upgrade:** a vault saved by this version can't be opened by QuestVector 1.1.0 or earlier. Older vaults still open and are upgraded the next time they are saved. ([ADR-0015](docs/decisions/0015-pbkdf2-1m-iterations-vault-v2.md))
