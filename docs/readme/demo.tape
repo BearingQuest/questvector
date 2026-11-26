@@ -10,7 +10,7 @@ Require uv
 
 Set Shell "bash"
 Set FontSize 18
-Set Width 1200
+Set Width 1280
 Set Height 420
 Set Padding 24
 Set TypingSpeed 40ms

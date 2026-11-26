@@ -67,7 +67,7 @@ or drift. Known starting points:
   ("no", "not", "never", "training only") next to a keyword; or support an
   explicit exclusions section that matching ignores. Add a test with a
   negated skill either way.
-  **Done 25 Nov 2026 as a warning plus docs**
+  **Done 26 Nov 2026 as a warning plus docs (owner decision 25 Nov)**
   ([ADR-0030](decisions/0030-negation-warnings-and-asked-keyword-counts.md)):
   `qv sync-ast` and the desktop window list dossier lines where a negation
   (no, not, never, without, none, "training only") sits next to a keyword that
@@ -95,7 +95,7 @@ or drift. Known starting points:
   more than one mention; count a keyword fully only when a Chronology or Impact
   bullet shows it, not only the Capabilities list. Any formula change
   supersedes ADR-0006 with a new ADR. Recommended: the display change first.
-  **Display step done 25 Nov 2026**
+  **Display step done 26 Nov 2026**
   ([ADR-0030](decisions/0030-negation-warnings-and-asked-keyword-counts.md)):
   the score now has "N of M template keywords in this posting are in your
   dossier" beside it, and each category shows "N of M asked" or "not asked", in
