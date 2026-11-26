@@ -188,3 +188,18 @@ def test_list_llm_providers_includes_all_four() -> None:
     ollama = next(p for p in response["data"]["providers"] if p["id"] == "ollama")
     assert ollama["is_local"] is True
     assert ollama["requires_api_key"] is False
+
+
+def test_export_bundle_rejects_bad_names_and_writes_nothing_outside(tmp_path: Path) -> None:
+    """R8, R18: a bad bundle name gets the error envelope and no file is written."""
+    workspace_dir = tmp_path / "ws"
+    api = Api()
+    api.launch_workspace(str(workspace_dir))
+    before = {p for p in tmp_path.rglob("*")}
+
+    for name in ["../x", "a/b", str(tmp_path / "abs"), "", "a" * 65, ".", ".."]:
+        response = api.export_bundle(str(workspace_dir), name, "pdf")
+        assert response["ok"] is False
+        assert "Bundle name" in response["error"]
+
+    assert {p for p in tmp_path.rglob("*")} == before

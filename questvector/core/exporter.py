@@ -11,6 +11,7 @@ would be inappropriate for a document meant to be read by human recruiters.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -27,6 +28,7 @@ from questvector.exceptions import ExportError
 
 ExportFormat = Literal["pdf", "docx"]
 _SUPPORTED_FORMATS: frozenset[str] = frozenset({"pdf", "docx"})
+_BUNDLE_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 
 
 def _validate_format(fmt: str) -> None:
@@ -43,6 +45,41 @@ def _validate_format(fmt: str) -> None:
             f"Unsupported export format: {fmt!r}",
             context={"supported_formats": sorted(_SUPPORTED_FORMATS)},
         )
+
+
+def resolve_bundle_path(output_dir: Path, bundle_name: str, fmt: str) -> Path:
+    """Build the output path for a bundle, refusing names that could leave ``output_dir``.
+
+    The desktop bridge and ``qv export`` both call this before writing anything.
+
+    Args:
+        output_dir: The directory bundles are written to (``<workspace>/bundles``).
+        bundle_name: The requested name, without extension.
+        fmt: The export format, used as the file extension.
+
+    Returns:
+        ``output_dir / "<bundle_name>.<fmt>"``.
+
+    Raises:
+        ExportError: If the name is not 1-64 letters, digits, dots, dashes or
+            underscores starting with a letter or digit, is ``.`` or ``..``, or
+            the resolved path would fall outside ``output_dir``.
+    """
+    # fullmatch, not match with "$": "$" would accept a trailing newline.
+    if bundle_name in {".", ".."} or _BUNDLE_NAME_PATTERN.fullmatch(bundle_name) is None:
+        raise ExportError(
+            "Bundle name must be 1-64 letters, digits, dots, dashes or underscores, "
+            "starting with a letter or digit (no slashes or spaces)",
+            context={"bundle_name": bundle_name},
+        )
+    base = output_dir.resolve()
+    path = output_dir / f"{bundle_name}.{fmt}"
+    if not path.resolve().is_relative_to(base):
+        raise ExportError(
+            "Bundle name would write outside the bundles folder",
+            context={"bundle_name": bundle_name},
+        )
+    return path
 
 
 def export_bundle(

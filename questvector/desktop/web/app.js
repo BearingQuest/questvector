@@ -35,6 +35,40 @@ function renderJson(elementId, payload) {
   document.getElementById(elementId).textContent = JSON.stringify(payload, null, 2);
 }
 
+// Data from dossiers, templates and bridge errors reaches the page only
+// through these helpers (createElement + textContent), never as markup.
+function el(tag, text) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function setList(list, items) {
+  list.replaceChildren(...items.map((text) => el("li", text)));
+}
+
+function listItem(label, text) {
+  const li = el("li");
+  li.append(el("b", label));
+  if (text !== undefined) li.append(`: ${text}`);
+  return li;
+}
+
+function section(title, count, items) {
+  const wrapper = el("div");
+  const list = el("ul");
+  list.className = "hud-list";
+  list.replaceChildren(...items);
+  wrapper.append(el("h3", `${title} (${count})`), list);
+  return wrapper;
+}
+
+function setOptions(select, placeholder, options) {
+  const first = el("option", placeholder);
+  first.value = "";
+  select.replaceChildren(first, ...options);
+}
+
 // --- Tab switching -----------------------------------------------------
 
 document.getElementById("tabs").addEventListener("click", (event) => {
@@ -71,22 +105,17 @@ document.getElementById("btn-load-dossier").addEventListener("click", async () =
   if (!dir) return setStatus("ENTER A WORKSPACE PATH", "warning");
   const response = await api.get_dossier(dir);
   const container = document.getElementById("dossier-output");
-  container.innerHTML = "";
+  container.replaceChildren();
   if (!response.ok) {
     container.textContent = response.error;
     return;
   }
   const { capabilities, chronology, impact } = response.data;
-  container.innerHTML = `
-    <div><h3>Capabilities (${capabilities.length})</h3>
-      <ul class="hud-list">${capabilities.map((c) => `<li><b>${c.domain}</b>: ${c.text}</li>`).join("")}</ul>
-    </div>
-    <div><h3>Chronology (${chronology.length})</h3>
-      <ul class="hud-list">${chronology.map((e) => `<li><b>${e.heading}</b></li>`).join("")}</ul>
-    </div>
-    <div><h3>Impact (${impact.length})</h3>
-      <ul class="hud-list">${impact.map((s) => `<li><b>${s.heading}</b></li>`).join("")}</ul>
-    </div>`;
+  container.replaceChildren(
+    section("Capabilities", capabilities.length, capabilities.map((c) => listItem(c.domain, c.text))),
+    section("Chronology", chronology.length, chronology.map((e) => listItem(e.heading))),
+    section("Impact", impact.length, impact.map((s) => listItem(s.heading))),
+  );
 });
 
 // --- Sync-AST / G-Force gauge ---------------------------------------------
@@ -95,16 +124,16 @@ async function refreshTemplates() {
   const api = requireApi();
   const dir = currentWorkspaceDir();
   const select = document.getElementById("template-select");
-  select.innerHTML = '<option value="">Select mission template&hellip;</option>';
+  const placeholder = "Select mission template…";
+  setOptions(select, placeholder, []);
   if (!dir) return;
   const response = await api.list_templates(dir);
   if (!response.ok) return;
-  for (const template of response.data) {
-    const option = document.createElement("option");
+  setOptions(select, placeholder, response.data.map((template) => {
+    const option = el("option", `${template.title} (${template.id})`);
     option.value = template.id;
-    option.textContent = `${template.title} (${template.id})`;
-    select.appendChild(option);
-  }
+    return option;
+  }));
 }
 
 document.getElementById("btn-refresh-templates").addEventListener("click", refreshTemplates);
@@ -136,7 +165,7 @@ document.getElementById("btn-run-scan").addEventListener("click", async () => {
   const response = await api.sync_ast(dir, jdText, templateId);
   if (!response.ok) {
     setStatus("SCAN FAILED", "critical");
-    document.getElementById("category-list").innerHTML = `<li>${response.error}</li>`;
+    setList(document.getElementById("category-list"), [response.error]);
     return;
   }
   lastScan = { jdText, templateId };
@@ -144,12 +173,12 @@ document.getElementById("btn-run-scan").addEventListener("click", async () => {
   setGauge(result.g_force_score, result.alert_level);
   setStatus("SCAN COMPLETE", result.alert_level);
 
-  document.getElementById("category-list").innerHTML = result.categories
-    .map((c) => `<li>${c.name}: ${(c.coverage * 100).toFixed(0)}% (weight ${c.weight.toFixed(2)})</li>`)
-    .join("");
-  document.getElementById("gaps-list").innerHTML = result.gaps.map((g) => `<li>${g}</li>`).join("") || "<li>None</li>";
-  document.getElementById("red-flags-list").innerHTML =
-    result.red_flags.map((r) => `<li>${r}</li>`).join("") || "<li>None</li>";
+  setList(
+    document.getElementById("category-list"),
+    result.categories.map((c) => `${c.name}: ${(c.coverage * 100).toFixed(0)}% (weight ${c.weight.toFixed(2)})`),
+  );
+  setList(document.getElementById("gaps-list"), result.gaps.length ? result.gaps : ["None"]);
+  setList(document.getElementById("red-flags-list"), result.red_flags.length ? result.red_flags : ["None"]);
 });
 
 // --- Templates -------------------------------------------------------------
@@ -186,13 +215,11 @@ async function loadLlmProviders() {
   if (!response.ok) return;
   llmProviders = response.data.providers;
   const select = document.getElementById("vault-provider");
-  select.innerHTML = '<option value="">Select LLM provider&hellip;</option>';
-  for (const provider of llmProviders) {
-    const option = document.createElement("option");
+  setOptions(select, "Select LLM provider…", llmProviders.map((provider) => {
+    const option = el("option", provider.is_local ? `${provider.display_name} (local)` : provider.display_name);
     option.value = provider.id;
-    option.textContent = provider.is_local ? `${provider.display_name} (local)` : provider.display_name;
-    select.appendChild(option);
-  }
+    return option;
+  }));
 }
 
 function updateProviderNote() {

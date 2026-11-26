@@ -107,6 +107,24 @@ def test_export_produces_pdf_bundle(tmp_path: Path) -> None:
     assert (workspace_dir / "bundles" / "my-resume.pdf").exists()
 
 
+@pytest.mark.parametrize("name", ["../x", "a/b", "/abs/path", "", "a" * 65, ".", ".."])
+def test_export_rejects_bad_bundle_names(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], name: str
+) -> None:
+    """R8: qv export refuses a bundle name that could leave bundles/."""
+    workspace_dir = tmp_path / "ws"
+    cli.main(["launch", "--dir", str(workspace_dir)])
+    before = {p for p in tmp_path.rglob("*")}
+
+    exit_code = cli.main(
+        ["export", "--dir", str(workspace_dir), "--bundle", name, "--format", "pdf"]
+    )
+
+    assert exit_code == 1
+    assert "Bundle name" in capsys.readouterr().err
+    assert {p for p in tmp_path.rglob("*")} == before
+
+
 def test_template_validate_fix_persists_and_returns_zero(tmp_path: Path) -> None:
     template_path = tmp_path / "bad.yaml"
     template_path.write_text(
