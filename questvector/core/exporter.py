@@ -166,9 +166,17 @@ def _export_pdf(
         story.append(
             Paragraph(f"G-Force Match Score: {match_result.g_force_score:.1f}%", heading_style)
         )
-        table_data = [["Category", "Weight", "Coverage"]]
+        story.append(Paragraph(match_result.counts_text(), body_style))
+        table_data = [["Category", "Weight", "Coverage", "Asked"]]
         for score in match_result.category_scores:
-            table_data.append([score.name, f"{score.weight:.2f}", f"{score.coverage * 100:.0f}%"])
+            table_data.append(
+                [
+                    score.name,
+                    f"{score.weight:.2f}",
+                    f"{score.coverage * 100:.0f}%",
+                    score.counts_text(),
+                ]
+            )
         table = Table(table_data, hAlign="LEFT")
         table.setStyle(
             TableStyle(
@@ -241,15 +249,18 @@ def _export_docx(
 
     if match_result is not None:
         document.add_heading(f"G-Force Match Score: {match_result.g_force_score:.1f}%", level=1)
-        table = document.add_table(rows=1, cols=3)
+        document.add_paragraph(match_result.counts_text())
+        table = document.add_table(rows=1, cols=4)
         table.style = "Light Grid"
         header = table.rows[0].cells
-        header[0].text, header[1].text, header[2].text = "Category", "Weight", "Coverage"
+        for cell, label in zip(header, ("Category", "Weight", "Coverage", "Asked"), strict=True):
+            cell.text = label
         for score in match_result.category_scores:
             row = table.add_row().cells
             row[0].text = score.name
             row[1].text = f"{score.weight:.2f}"
             row[2].text = f"{score.coverage * 100:.0f}%"
+            row[3].text = score.counts_text()
         if match_result.gaps:
             gaps_paragraph = document.add_paragraph()
             gaps_run = gaps_paragraph.add_run("Gaps: " + ", ".join(match_result.gaps))

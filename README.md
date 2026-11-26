@@ -28,7 +28,7 @@
 
 *Command your job search with a local-only, privacy-first career flight deck. Score your career history against job descriptions, find the gaps, and own your career data.*
 
-<img alt="Terminal demo: qv sync-ast scores a synthetic dossier against a job description and lists coverage per category, gaps and weak categories." src="docs/readme/demo.gif" width="720">
+<img alt="Terminal demo: qv sync-ast scores a synthetic dossier against a job description and lists coverage per category with how many asked keywords the dossier covers, gaps and weak categories." src="docs/readme/demo.gif" width="720">
 
 ```mermaid
 flowchart LR
@@ -142,6 +142,10 @@ python -m questvector.desktop.app   # native HUD window (requires a display)
 | `Impact.md` | a grouping, e.g. `## Cost Reduction` | quantified results |
 
 Matching is by keyword, so use the terms a job description would use. Common variants such as "K8s", "CI/CD" and "SOC 2" are matched to one form automatically ([ADR-0027](docs/decisions/0027-keyword-normalization.md)); singular and plural forms aren't, so "pipeline" and "pipelines" don't match each other.
+
+Leave out statements of what you haven't done, such as "No hands-on Kubernetes" or "Terraform training only". Matching is by keyword and ignores the "no", so such a line still counts as a Kubernetes or Terraform match. `qv sync-ast` (and the desktop window) lists any line where a negation (no, not, never, without, none, or "training only") sits next to a keyword that matched, so you can remove it. The score itself is unchanged by the warning ([ADR-0030](docs/decisions/0030-negation-warnings-and-asked-keyword-counts.md)).
+
+**Reading the score.** Next to the score, `qv sync-ast`, the desktop window and PDF and DOCX exports show "N of M template keywords in this posting are in your dossier", and each category shows "N of M asked". M counts only the posting's keywords that the template lists for that category, not everything the posting says; N is how many of those your dossier has. "Not asked" means the posting contains none of that category's keywords, and the category then counts as full coverage (it doesn't lower the score). A category with no keyword list asks about every keyword in the posting. These counts are display only: the score, the alert level and the formula are unchanged.
 
 ### About the vault
 `qv vault set-key` (or the desktop Vault panel) stores your provider settings and API keys in `.questvector.vault` in the workspace, encrypted with a key derived from your passphrase ([ADR-0015](docs/decisions/0015-pbkdf2-1m-iterations-vault-v2.md)).

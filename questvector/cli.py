@@ -162,35 +162,16 @@ def _cmd_sync_ast(args: argparse.Namespace) -> int:
     result = matcher.run_match(dossier, job_description, template)
 
     if args.json:
-        print(
-            json.dumps(
-                {
-                    "g_force_score": result.g_force_score,
-                    "alert_level": result.alert_level.value,
-                    "gaps": list(result.gaps),
-                    "red_flags": list(result.red_flags),
-                    "weak_categories": list(result.weak_categories),
-                    "categories": [
-                        {
-                            "name": c.name,
-                            "weight": c.weight,
-                            "coverage": c.coverage,
-                            "matched_keywords": list(c.matched_keywords),
-                            "gap_keywords": list(c.gap_keywords),
-                        }
-                        for c in result.category_scores
-                    ],
-                }
-            )
-        )
+        print(json.dumps(result.to_dict()))
     else:
         print(
             f"[QV] G-Force Match: {result.g_force_score:.1f}%  ({result.alert_level.value.upper()})"
         )
+        print(f"[QV] {result.counts_text()}")
         for category in result.category_scores:
             print(
                 f"  - {category.name}: {category.coverage * 100:.0f}% coverage "
-                f"(weight {category.weight:.2f})"
+                f"(weight {category.weight:.2f}), {category.counts_text()}"
             )
         if result.gaps:
             print(f"[QV] Gaps: {', '.join(result.gaps)}")
@@ -198,6 +179,13 @@ def _cmd_sync_ast(args: argparse.Namespace) -> int:
             print(f"[QV] Weak categories: {', '.join(result.weak_categories)}")
         if result.red_flags:
             print(f"[QV] RED FLAGS: {'; '.join(result.red_flags)}")
+        if result.negation_warnings:
+            print("[QV] Check these lines (a negated skill still counts toward the score):")
+            for warning in result.negation_warnings:
+                print(
+                    f'  - {warning.file} > {warning.heading}: "{warning.line}" '
+                    f"({', '.join(warning.keywords)})"
+                )
     return 0
 
 

@@ -41,6 +41,10 @@ Algorithm
        ``weak_categories``, separately from per-keyword ``gaps``, since a
        category can be "weak" overall without every individual keyword
        being missing.
+    8. Display only, never part of the score: each category reports "N of M
+       asked" (matched keywords of matched plus gap keywords), and
+       :mod:`questvector.core.negation` flags dossier lines that negate a
+       matched keyword (ADR-0030).
 
 This is intentionally a transparent, tunable heuristic — not NLP/semantic
 matching — so its behavior is fully predictable and testable. Weights are
@@ -65,6 +69,7 @@ from questvector.core.models import (
     MatchResult,
     MissionTemplate,
 )
+from questvector.core.negation import find_negation_warnings
 from questvector.exceptions import MatchEngineError
 
 
@@ -187,6 +192,8 @@ def run_match(
     else:
         alert_level = AlertLevel.SUCCESS
 
+    matched_keywords = frozenset(k for score in category_scores for k in score.matched_keywords)
+
     return MatchResult(
         g_force_score=g_force_score,
         category_scores=tuple(category_scores),
@@ -194,4 +201,5 @@ def run_match(
         red_flags=tuple(red_flags),
         weak_categories=tuple(weak_categories),
         alert_level=alert_level,
+        negation_warnings=find_negation_warnings(dossier, matched_keywords),
     )

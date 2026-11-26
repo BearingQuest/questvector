@@ -67,12 +67,15 @@ or drift. Known starting points:
   ("no", "not", "never", "training only") next to a keyword; or support an
   explicit exclusions section that matching ignores. Add a test with a
   negated skill either way.
-  **Still open (checked 22 Nov 2026):** a characterization test in
-  `tests/test_matcher.py` pins today's behavior: "No hands-on Kubernetes" and
-  "Terraform training only" both count as matches, and the bullets reach the
-  narrative prompt unchanged. The fix is undecided; a warning keeps the keyword
-  counted, an exclusions section (the only option that also keeps the text out
-  of the narrative) does not. A deliberate fix updates that test.
+  **Done 26 Nov 2026 as a warning plus docs (owner decision 25 Nov)**
+  ([ADR-0030](decisions/0030-negation-warnings-and-asked-keyword-counts.md)):
+  `qv sync-ast` and the desktop window list dossier lines where a negation
+  (no, not, never, without, none, "training only") sits next to a keyword that
+  matched, and the README says to leave such statements out. The score is
+  unchanged and the line still reaches the narrative prompt. The exclusions
+  section was not built; it is the only option that also keeps the text out of
+  the narrative, and stays open if that matters. Contractions ("don't") are not
+  handled (see the ADR).
 - **Role titles in headings may not count toward matching.** ✅ Done 22 Nov
   2026. Found 18 Oct with a synthetic dossier: the match reported `manager` as a
   gap although the role headings say "Engineering Manager". Confirmed: the
@@ -85,13 +88,26 @@ or drift. Known starting points:
   the denominator is only the posting's keywords that the template also lists,
   so a large dossier covers everything and the score stops telling postings
   apart (a synthetic 120-bullet dossier scores 100.0 on both an on-target and
-  an off-target posting). **Still open.** A characterization test in
+  an off-target posting). **Still open (the formula).** A characterization test in
   `tests/test_matcher.py` pins this. Options: show "N of M keywords asked" next
   to the score (display only, no ADR); weight by recency (needs dates in
   headings); count posting keywords outside the template's categories; require
   more than one mention; count a keyword fully only when a Chronology or Impact
   bullet shows it, not only the Capabilities list. Any formula change
   supersedes ADR-0006 with a new ADR. Recommended: the display change first.
+  **Display step done 26 Nov 2026**
+  ([ADR-0030](decisions/0030-negation-warnings-and-asked-keyword-counts.md)):
+  the score now has "N of M template keywords in this posting are in your
+  dossier" beside it, and each category shows "N of M asked" or "not asked", in
+  the CLI, `--json`, the desktop window and the exports. The formula is still
+  open until the owner has run it on real postings. Finding: a category the
+  posting never asks about counts as 100% at its full weight (PRD R4), which is
+  one cause of the saturation; measured on synthetic data, the on-target posting
+  is asked 12 keywords and the off-target one 7, both score 100.0, and
+  `cicd_automation` (weight 0.2) is asked 0 off-target and still counts as full.
+  Add it to the options above: count a category the posting doesn't ask about
+  as no evidence rather than full coverage.
+
 - **Spec traceability.** Code cites `MASTER_DEVELOPER_SPEC.pdf` section numbers;
   that file isn't in the repo. Decide whether to add it, or re-point citations
   to `docs/QuestVector_Spec.pdf`.
@@ -445,7 +461,7 @@ Compare against risk-trainer's PRD requirements and look:
   shown only when the workspace has no vault yet. An empty passphrase is
   already refused for a new vault, from both the CLI and the desktop.
 - **Content Security Policy:** risk-trainer enforces a strict CSP with no
-  inline scripts; set the same in `index.html`. **Done 26 Nov 2026 for the
+  inline scripts; set the same in `index.html`. **Done 25 Nov 2026 for the
   current window** ([ADR-0029](decisions/0029-desktop-text-only-csp-bundle-names.md)):
   a strict meta-tag CSP, and the page renders data as text. The redesign
   keeps both.
@@ -603,7 +619,7 @@ unrelated pull request trips over it in the required `pip-audit` check.
   and BearingQuest/XGeneratePosts PR #10.
 
 ## 19. SBOM on each release
-Decided 5 Nov 2026 (owner). Each release carries a software bill of
+✅ Done (built in #44, [ADR-0023](decisions/0023-ruff-strict-mypy-make-hooks-sbom.md)). Decided 5 Nov 2026 (owner). Each release carries a software bill of
 materials for the locked runtime dependencies, so a user or auditor can see
 what a release contains without installing it.
 
@@ -611,8 +627,8 @@ what a release contains without installing it.
   `contents: read`) with `uv export --format cyclonedx1.5 --no-dev --frozen`.
   It is attached to the GitHub Release with the wheel, sdist and `SHA256SUMS`
   before the draft is published, so it is part of the immutable release
-  (ADR-0014). Every release asset gets the build-provenance attestation, so
-  the SBOM is listed in `SHA256SUMS` and in the attestation subjects.
+  (ADR-0014). `release.yml` attests the wheel, the sdist and the SBOM;
+  `SHA256SUMS` lists all three but is not attested itself.
 - **Experimental in uv.** uv 0.13.1 warns that the format may change;
   `--preview-features sbom-export` acknowledges that. Fallback if it breaks:
   `cyclonedx-py`. The build PR adds an ADR recording the preview status and
@@ -622,8 +638,9 @@ what a release contains without installing it.
 - Checked 12 Nov 2026 on `main` at 49b160c with uv 0.13.1: the export gives
   CycloneDX 1.5, root component `questvector`, 23 components, and none of
   those dev tools.
-- **Open question for the build plan** (recorded, not answered): whether the
-  optional AI-provider extras belong in the SBOM.
+- **Open question for the build plan**: whether the optional AI-provider
+  extras belong in the SBOM. Answered by ADR-0023: yes, the SBOM includes the
+  AI extras (`--all-extras --no-dev`), because the wheel can install them.
 - GitHub's dependency graph "Export SBOM" (SPDX) stays available on demand.
 
 ## 20. README visuals for the GUI

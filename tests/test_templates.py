@@ -169,14 +169,14 @@ def test_validate_template_fix_with_zero_weight_sum_raises() -> None:
 
 def test_write_template_round_trips(tmp_path: Path) -> None:
     template = MissionTemplate(
-        "t", "Title", (TemplateCategory("a", 0.5, ("x", "y")), TemplateCategory("b", 0.5))
+        "t", "Title", (TemplateCategory("a", 0.5, ("aws", "terraform")), TemplateCategory("b", 0.5))
     )
     path = tmp_path / "out.yaml"
     write_template(template, path)
 
     reloaded = load_template(path)
     assert reloaded.template_id == "t"
-    assert reloaded.categories[0].keywords == ("x", "y")
+    assert reloaded.categories[0].keywords == ("aws", "terraform")
 
 
 def test_validate_template_file_persists_fix(tmp_path: Path) -> None:
@@ -288,7 +288,7 @@ def test_write_template_round_trips_reconciled_fields(tmp_path: Path) -> None:
     template = MissionTemplate(
         template_id="t",
         title="Title",
-        categories=(TemplateCategory("a", 1.0, ("x",)),),
+        categories=(TemplateCategory("a", 1.0, ("aws",)),),
         author="Someone",
         version="2.0.0",
         description="Desc",
@@ -421,3 +421,24 @@ def test_every_starter_template_keyword_is_already_normalized() -> None:
         declared = [tuple(c.get("keywords", [])) for c in raw["categories"]]
         loaded = [c.keywords for c in load_template(path).categories]
         assert loaded == declared, path.name
+
+
+@pytest.mark.parametrize("keyword", ["it", "the", "x", "Not", "Experience"])
+def test_load_template_refuses_a_keyword_matching_ignores(tmp_path: Path, keyword: str) -> None:
+    """R6: a stopword or one-letter keyword could never match, so it is refused by name."""
+    path = _write(
+        tmp_path,
+        "mission_id: m1\ncategories:\n  - name: tools\n    weight: 1.0\n"
+        f"    keywords: [aws, {keyword}]\n",
+    )
+
+    with pytest.raises(ValidationError, match=rf"m1.*tools.*{keyword}"):
+        load_template(path)
+
+
+def test_validate_template_file_refuses_a_keyword_matching_ignores(tmp_path: Path) -> None:
+    """R6: `qv template validate` goes through the same loader, so it refuses it too."""
+    path = _write(tmp_path, "categories:\n  - name: a\n    weight: 1.0\n    keywords: [it]\n")
+
+    with pytest.raises(ValidationError, match=r"'it'"):
+        validate_template_file(path)

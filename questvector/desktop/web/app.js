@@ -171,13 +171,24 @@ document.getElementById("btn-run-scan").addEventListener("click", async () => {
   lastScan = { jdText, templateId };
   const result = response.data;
   setGauge(result.g_force_score, result.alert_level);
+  document.getElementById("gauge-counts").textContent = result.counts_text;
   setStatus("SCAN COMPLETE", result.alert_level);
 
   setList(
     document.getElementById("category-list"),
-    result.categories.map((c) => `${c.name}: ${(c.coverage * 100).toFixed(0)}% (weight ${c.weight.toFixed(2)})`),
+    result.categories.map((c) => `${c.name}: ${(c.coverage * 100).toFixed(0)}% (weight ${c.weight.toFixed(2)}), ${c.counts_text}`),
   );
   setList(document.getElementById("gaps-list"), result.gaps.length ? result.gaps : ["None"]);
+  setList(
+    document.getElementById("weak-categories-list"),
+    result.weak_categories.length ? result.weak_categories : ["None"],
+  );
+  setList(
+    document.getElementById("negation-list"),
+    result.negation_warnings.length
+      ? result.negation_warnings.map((w) => `${w.file} > ${w.heading}: "${w.line}" (${w.keywords.join(", ")})`)
+      : ["None"],
+  );
   setList(document.getElementById("red-flags-list"), result.red_flags.length ? result.red_flags : ["None"]);
 });
 

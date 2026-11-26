@@ -134,6 +134,15 @@ Acceptance criteria use EARS-style phrasing.
   match in the desktop app, THEN the system SHALL show the G-Force score,
   per-category coverage, gaps, weak categories, red flags, and alert level.
 - WHERE `--json` is given, the output SHALL be machine-readable.
+- The result SHALL show, next to the score, how many of the posting's template
+  keywords the dossier has ("N of M"), and for each category "N of M asked" or
+  "not asked". The counts are display only (ADR-0030).
+- The result SHALL list dossier lines where a negation (no, not, never,
+  without, none, "training only") sits next to a keyword that matched, naming
+  the file, heading, line and keyword. Warnings don't change the score or alert
+  level (ADR-0030).
+- The desktop app SHALL show the same result as the CLI, including weak
+  categories, and both SHALL build it from one serializer.
 
 **R4 — Scoring rules.** **Built.**
 - The score SHALL follow the rules in `questvector/core/matcher.py` and spec
@@ -156,6 +165,8 @@ Acceptance criteria use EARS-style phrasing.
   sum to 1.00 (±0.005), and SHALL exit non-zero if the template is invalid.
 - WHERE `--fix` is given, the system SHALL rescale weights to 1.00 and save
   the file.
+- A template keyword that matching ignores (a stopword or one letter) SHALL be
+  refused, naming the template, category and keyword (ADR-0030).
 
 **R7 — Contribution path.** **Built** (15 Oct 2026).
 - The repository SHALL provide a valid boilerplate at
@@ -174,6 +185,9 @@ Acceptance criteria use EARS-style phrasing.
   with a letter or digit, and the file SHALL be written inside `bundles/`,
   from both `qv export` and the desktop app; any other name SHALL be refused
   with a plain error before anything is written (ADR-0029).
+- WHERE a match summary is included, the bundle SHALL show the asked-keyword
+  counts beside each category and the overall count. It SHALL NOT include
+  negation warnings (ADR-0030).
 
 **R9 — ATS-safe resume output.** **Planned** (backlog item 5).
 - Exported resumes SHALL use a single column, with no tables, text boxes,

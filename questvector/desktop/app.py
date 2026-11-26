@@ -172,24 +172,7 @@ class Api:
             job_description = matcher.parse_job_description(jd_text, source="ui-paste")
             template = self._load_template_by_id(workspace_dir, template_id)
             result = matcher.run_match(dossier, job_description, template)
-            return _ok(
-                {
-                    "g_force_score": result.g_force_score,
-                    "alert_level": result.alert_level.value,
-                    "gaps": list(result.gaps),
-                    "red_flags": list(result.red_flags),
-                    "categories": [
-                        {
-                            "name": c.name,
-                            "weight": c.weight,
-                            "coverage": c.coverage,
-                            "matched_keywords": list(c.matched_keywords),
-                            "gap_keywords": list(c.gap_keywords),
-                        }
-                        for c in result.category_scores
-                    ],
-                }
-            )
+            return _ok(result.to_dict())
         except QuestVectorError as exc:
             return _err(exc)
 
