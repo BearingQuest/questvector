@@ -445,7 +445,10 @@ Compare against risk-trainer's PRD requirements and look:
   shown only when the workspace has no vault yet. An empty passphrase is
   already refused for a new vault, from both the CLI and the desktop.
 - **Content Security Policy:** risk-trainer enforces a strict CSP with no
-  inline scripts; set the same in `index.html`.
+  inline scripts; set the same in `index.html`. **Done 26 Nov 2026 for the
+  current window** ([ADR-0029](decisions/0029-desktop-text-only-csp-bundle-names.md)):
+  a strict meta-tag CSP, and the page renders data as text. The redesign
+  keeps both.
 - **Visual identity:** decided 16 Oct: keep the Flight Deck look, and share
   conventions with risk-trainer where they make sense (accessibility,
   layout behavior, help pages, error handling, CSP), not its visual design.

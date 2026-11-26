@@ -7,7 +7,7 @@ from pathlib import Path
 import docx
 import pytest
 
-from questvector.core.exporter import export_bundle
+from questvector.core.exporter import export_bundle, resolve_bundle_path
 from questvector.core.models import (
     AlertLevel,
     Capability,
@@ -93,3 +93,44 @@ def test_export_pdf_without_match_result_or_narrative(
     output_path = tmp_path / "bundle.pdf"
     export_bundle(full_dossier, output_path, fmt="pdf")
     assert output_path.read_bytes()[:5] == b"%PDF-"
+
+
+BAD_BUNDLE_NAMES = [
+    "../x",
+    "a/b",
+    "a\\b",
+    "/etc/passwd",
+    "",
+    "a" * 65,
+    ".",
+    "..",
+    "name\n",
+    ".hidden",
+    "has space",
+]
+
+
+@pytest.mark.parametrize("name", BAD_BUNDLE_NAMES)
+def test_resolve_bundle_path_rejects_bad_names(tmp_path: Path, name: str) -> None:
+    """R8: a bundle name that could leave bundles/ is refused."""
+    with pytest.raises(ExportError, match="Bundle name"):
+        resolve_bundle_path(tmp_path / "bundles", name, "pdf")
+
+
+@pytest.mark.parametrize("name", ["resume", "my-resume.v2", "A_1", "a" * 64])
+def test_resolve_bundle_path_accepts_normal_names(tmp_path: Path, name: str) -> None:
+    """R8: a normal bundle name stays inside bundles/."""
+    output_dir = tmp_path / "bundles"
+    assert resolve_bundle_path(output_dir, name, "docx") == output_dir / f"{name}.docx"
+
+
+def test_resolve_bundle_path_rejects_symlink_out_of_bundles(tmp_path: Path) -> None:
+    """R8: a file in bundles/ that is a link to somewhere else is refused."""
+    output_dir = tmp_path / "bundles"
+    output_dir.mkdir()
+    outside = tmp_path / "outside.pdf"
+    outside.write_text("x", encoding="utf-8")
+    (output_dir / "evil.pdf").symlink_to(outside)
+
+    with pytest.raises(ExportError, match="outside the bundles folder"):
+        resolve_bundle_path(output_dir, "evil", "pdf")

@@ -20,6 +20,7 @@ from typing import Any
 
 from questvector.core import matcher, templates, workspace
 from questvector.core.exporter import export_bundle as _export_bundle
+from questvector.core.exporter import resolve_bundle_path
 from questvector.core.llm import PROVIDERS, build_narrative_prompt, create_narrative_generator
 from questvector.core.markdown_parser import parse_dossier
 from questvector.core.models import MissionTemplate
@@ -221,7 +222,8 @@ class Api:
 
         Args:
             dir_path: Absolute path to the workspace directory.
-            bundle_name: Output file name, without extension.
+            bundle_name: Output file name, without extension; checked by
+                :func:`~questvector.core.exporter.resolve_bundle_path`.
             fmt: ``"pdf"`` or ``"docx"``.
             jd_text: Optional job description text to include a match
                 summary for.
@@ -233,6 +235,8 @@ class Api:
         """
         try:
             workspace_dir = Path(dir_path)
+            output_dir = workspace_dir / "bundles"
+            output_path = resolve_bundle_path(output_dir, bundle_name, fmt)
             dossier = parse_dossier(workspace_dir)
             match_result = None
             if jd_text and template_id:
@@ -240,9 +244,7 @@ class Api:
                 template = self._load_template_by_id(workspace_dir, template_id)
                 match_result = matcher.run_match(dossier, job_description, template)
 
-            output_dir = workspace_dir / "bundles"
             output_dir.mkdir(parents=True, exist_ok=True)
-            output_path = output_dir / f"{bundle_name}.{fmt}"
             _export_bundle(dossier, output_path, fmt=fmt, match_result=match_result)  # type: ignore[arg-type]
             return _ok({"output_path": str(output_path)})
         except QuestVectorError as exc:

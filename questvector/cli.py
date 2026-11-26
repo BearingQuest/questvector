@@ -42,7 +42,7 @@ from pathlib import Path
 
 from questvector import __version__
 from questvector.core import matcher, templates, workspace
-from questvector.core.exporter import export_bundle
+from questvector.core.exporter import export_bundle, resolve_bundle_path
 from questvector.core.llm import PROVIDERS, build_narrative_prompt, create_narrative_generator
 from questvector.core.markdown_parser import parse_dossier
 from questvector.core.models import MissionTemplate
@@ -211,6 +211,9 @@ def _cmd_export(args: argparse.Namespace) -> int:
         Process exit code.
     """
     workspace_dir = _resolve_workspace_dir(args.dir)
+    # Checked first: a bad name must fail before any narrative network call.
+    output_dir = workspace_dir / "bundles"
+    output_path = resolve_bundle_path(output_dir, args.bundle, args.format)
     dossier = parse_dossier(workspace_dir)
 
     match_result = None
@@ -244,9 +247,7 @@ def _cmd_export(args: argparse.Namespace) -> int:
         )
         narrative = generator.generate(prompt)
 
-    output_dir = workspace_dir / "bundles"
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{args.bundle}.{args.format}"
     export_bundle(
         dossier, output_path, fmt=args.format, match_result=match_result, narrative=narrative
     )

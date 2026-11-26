@@ -77,6 +77,7 @@ record in [`docs/decisions/`](docs/decisions/).
 - README banner: removed the space after the first asterisk on the proof-of-concept line, which stopped the italics. The wording is unchanged.
 
 ### Security
+- The desktop window rendered dossier text, mission-template names and keywords, and error messages as raw HTML, and had no Content-Security-Policy, so a template with HTML in a category name could run script in the window; export bundle names weren't checked, so `../x` wrote outside `bundles/`. Now every value is shown as text (no `innerHTML` in `app.js`), `index.html` sets a strict CSP (`default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'`; `'unsafe-eval'` is in `script-src` only because pywebview builds its bridge functions with `new Function`), and one shared check (`resolve_bundle_path`) limits bundle names to 1-64 letters, digits, `.`, `-`, `_` and keeps the output inside `bundles/`, for both the desktop app and `qv export`. ([ADR-0029](docs/decisions/0029-desktop-text-only-csp-bundle-names.md))
 - Upgraded pyasn1 0.6.4 → 0.6.5 (a dependency of google-auth, used by the Gemini provider) to fix CVE-2026-119194, CVE-2026-119195, CVE-2026-119196 and CVE-2026-119197.
 - Upgraded opentelemetry-api 1.45.1 → 1.45.2 (a dependency of the anthropic SDK) to fix CVE-2026-126360. Lockfile change only.
 

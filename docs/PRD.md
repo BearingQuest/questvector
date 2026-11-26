@@ -170,6 +170,10 @@ Acceptance criteria use EARS-style phrasing.
 - WHEN the user runs `qv export --bundle <name> --format pdf|docx`, THEN the
   system SHALL write the bundle to `bundles/`, including a match summary when
   `--target` and `--template` are given.
+- The bundle name SHALL be 1-64 letters, digits, `.`, `-` or `_`, starting
+  with a letter or digit, and the file SHALL be written inside `bundles/`,
+  from both `qv export` and the desktop app; any other name SHALL be refused
+  with a plain error before anything is written (ADR-0029).
 
 **R9 — ATS-safe resume output.** **Planned** (backlog item 5).
 - Exported resumes SHALL use a single column, with no tables, text boxes,
@@ -252,6 +256,9 @@ Acceptance criteria use EARS-style phrasing.
 **R18 — Safe bridge.** **Built.**
 - Every desktop bridge method SHALL return `{"ok": true, "data": ...}` or
   `{"ok": false, "error": "..."}` and SHALL NOT raise to the interface.
+- The window SHALL show dossier, template and error text as text, never as
+  markup, and its page SHALL set a Content-Security-Policy that allows no
+  inline script, no inline style and no network connections (ADR-0029).
 
 **R19 — Interface testing.** **Planned** (backlog items 4, 6).
 - Automated browser tests (for example Playwright) SHALL cover each desktop
