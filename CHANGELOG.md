@@ -13,7 +13,19 @@ record in [`docs/decisions/`](docs/decisions/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-26
+
 **Vault upgrade:** a vault saved by this version can't be opened by QuestVector 1.1.0 or earlier. Older vaults still open and are upgraded the next time they are saved. ([ADR-0015](docs/decisions/0015-pbkdf2-1m-iterations-vault-v2.md))
+
+**Highlights**
+- Better matching ([ADR-0027](docs/decisions/0027-keyword-normalization.md)): "CI/CD", "SOC 2", "ISO 27001", "K8s" and "on call" match one form; a keyword at the end of a sentence now matches; role titles in Chronology headings count. Scores for existing dossiers can rise.
+- Clearer results ([ADR-0030](docs/decisions/0030-negation-warnings-and-asked-keyword-counts.md)): "N of M template keywords in this posting are in your dossier" next to the score, "N of M asked" per category, and a list of dossier lines that negate a skill the match still counted. The desktop window now shows weak categories. Scores and the formula are unchanged.
+- Stronger vault ([ADR-0015](docs/decisions/0015-pbkdf2-1m-iterations-vault-v2.md)): PBKDF2-HMAC-SHA256 at 1,000,000 iterations, file format 2 and atomic owner-only saves. A vault saved by this version can't be opened by 1.1.0 or earlier.
+- Safer desktop window ([ADR-0029](docs/decisions/0029-desktop-text-only-csp-bundle-names.md)): data is shown as text, the page has a Content-Security-Policy, and a bundle name can't write outside `bundles/`.
+- AI providers: default models updated (checked 4 Nov 2026); a clear error when a provider doesn't recognize a model; API keys redacted from SDK error messages. Narrative generation has been tested live with Ollama and Anthropic on synthetic data; OpenAI and Gemini are tested with simulated responses only.
+- Release files: a CycloneDX SBOM ships with the wheel and sdist and is attested with them ([ADR-0023](docs/decisions/0023-ruff-strict-mypy-make-hooks-sbom.md)); the workflow now creates a draft and the owner publishes ([ADR-0020](docs/decisions/0020-owner-publishes-releases.md)).
+- Compatibility: a custom mission template keyword that is several words with no alias, a common word, or a single letter now fails to load with a message naming it. Such keywords could never match before.
+- Dependency security fixes: pyasn1 0.6.5 and opentelemetry-api 1.45.2.
 
 ### Added
 - Matching display, backlog item 1 part 2 ([ADR-0030](docs/decisions/0030-negation-warnings-and-asked-keyword-counts.md)); the score, alert level and formula are unchanged. **Asked-keyword counts:** "N of M template keywords in this posting are in your dossier" next to the score and "N of M asked" (or "not asked") per category, in `qv sync-ast`, `--json` (new keys `matched_count`, `asked_count`, `counts_text`, `negation_warnings`, and per category `matched_count`, `asked_count`, `counts_text`; every existing key is unchanged), the desktop window, and PDF and DOCX exports. **Negation warnings:** `qv sync-ast` and the desktop window list dossier lines where no, not, never, without, none or "training only" sits next to a keyword that matched (not in exports). The README says to leave out statements of what you haven't done, and explains the counts. The two known-limitation tests now assert the warnings and the asked counts, and `tests/export_text.py` is the one shared reader of export text.
@@ -214,6 +226,7 @@ The first version published as release files: a pre-release on [GitHub Releases]
 - `tj-actions/changed-files` updated to v47 (Dependabot pull request #1 and a
   follow-up commit).
 
-[Unreleased]: https://github.com/dustenatx/QuestVector/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/BearingQuest/questvector/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/BearingQuest/questvector/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/dustenatx/QuestVector/compare/70f380d...v1.1.0
 [1.0.0]: https://github.com/dustenatx/QuestVector/commit/70f380d
