@@ -40,4 +40,5 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0026](0026-readme-presentation-and-november-carry-overs.md) | README presentation and the November carry-overs | Accepted | 2026-11-22 |
 | [0027](0027-keyword-normalization.md) | One keyword normalization for postings, dossiers, and templates | Accepted | 2026-11-22 |
 | [0028](0028-review-comment-version-and-qc-post-env.md) | The review comment stops naming a version, and the key file is `~/.qc_post_env` | Accepted | 2026-11-25 |
-| [0029](0029-desktop-text-only-csp-bundle-names.md) | The desktop window renders data as text, sets a strict CSP, and checks bundle names | Accepted | 2026-11-26 |
+| [0029](0029-desktop-text-only-csp-bundle-names.md) | The desktop window renders data as text, sets a strict CSP, and checks bundle names | Accepted | 2026-11-25 |
+| [0030](0030-negation-warnings-and-asked-keyword-counts.md) | Negation warnings and asked-keyword counts; scores and the formula unchanged | Accepted | 2026-11-26 |

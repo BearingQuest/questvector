@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from export_text import docx_text, pdf_text
 
 from questvector import __version__, cli
 from questvector.core import vault
@@ -401,3 +402,97 @@ def test_vault_set_key_unknown_provider_rejected_by_argparse(tmp_path: Path) -> 
         cli.main(
             ["vault", "set-key", "--dir", str(workspace_dir), "--provider", "not-a-real-provider"]
         )
+
+
+_NEGATION_DOSSIER = "## Cloud\n- AWS and Terraform automation\n- No hands-on Kubernetes\n"
+_NEGATION_JD = "Needs AWS, Terraform and Kubernetes"
+
+
+def _scored_workspace(tmp_path: Path) -> tuple[Path, Path]:
+    workspace_dir = tmp_path / "ws"
+    cli.main(["launch", "--dir", str(workspace_dir)])
+    (workspace_dir / "Capabilities.md").write_text(_NEGATION_DOSSIER, encoding="utf-8")
+    jd_path = tmp_path / "jd.txt"
+    jd_path.write_text(_NEGATION_JD, encoding="utf-8")
+    return workspace_dir, jd_path
+
+
+def test_sync_ast_text_shows_counts_and_negation_warnings(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R3: the CLI shows asked counts, "not asked", and the negated lines (ASCII only)."""
+    workspace_dir, jd_path = _scored_workspace(tmp_path)
+    capsys.readouterr()
+
+    cli.main(
+        [
+            *["sync-ast", "--dir", str(workspace_dir), "--target", str(jd_path)],
+            *["--template", "devops-senior-mgr"],
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert "template keywords in this posting are in your dossier" in out
+    assert "not asked (counts as full coverage)" in out
+    assert " of " in out and " asked" in out
+    assert 'Capabilities.md > Cloud: "No hands-on Kubernetes" (kubernetes)' in out
+    assert out.isascii()
+
+
+def test_sync_ast_json_keeps_existing_keys_and_adds_new_ones(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R3: --json keeps every existing key and adds counts and warnings."""
+    workspace_dir, jd_path = _scored_workspace(tmp_path)
+    capsys.readouterr()
+
+    cli.main(
+        [
+            *["sync-ast", "--dir", str(workspace_dir), "--target", str(jd_path)],
+            *["--template", "devops-senior-mgr", "--json"],
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    existing = {
+        "g_force_score",
+        "alert_level",
+        "gaps",
+        "red_flags",
+        "weak_categories",
+        "categories",
+    }
+    assert existing <= output.keys()
+    assert set(output) - existing == {
+        "matched_count",
+        "asked_count",
+        "counts_text",
+        "negation_warnings",
+    }
+    assert {"name", "weight", "coverage", "matched_keywords", "gap_keywords"} <= output[
+        "categories"
+    ][0].keys()
+    assert output["negation_warnings"] == [
+        {
+            "file": "Capabilities.md",
+            "heading": "Cloud",
+            "line": "No hands-on Kubernetes",
+            "keywords": ["kubernetes"],
+        }
+    ]
+    assert output["matched_count"] <= output["asked_count"]
+
+
+def test_export_from_the_cli_shows_counts_but_not_warnings(tmp_path: Path) -> None:
+    """R8: the CLI's PDF and DOCX show the asked counts and never the negation warnings."""
+    workspace_dir, jd_path = _scored_workspace(tmp_path)
+
+    for fmt, read in (("pdf", pdf_text), ("docx", docx_text)):
+        args = ["export", "--dir", str(workspace_dir), "--bundle", f"b-{fmt}", "--format", fmt]
+        cli.main([*args, "--target", str(jd_path), "--template", "devops-senior-mgr"])
+        text = read(workspace_dir / "bundles" / f"b-{fmt}.{fmt}")
+        assert "template keywords in this posting are in your dossier" in text
+        # PDF strings escape the parentheses, so check the two halves.
+        assert "not asked" in text
+        assert "counts as full coverage" in text
+        assert "Check these lines" not in text

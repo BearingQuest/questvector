@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 
 # UP042: not a StrEnum on purpose. str() of a member stays "AlertLevel.SUCCESS";
@@ -226,6 +227,44 @@ class CategoryScore:
     matched_keywords: tuple[str, ...] = field(default_factory=tuple)
     gap_keywords: tuple[str, ...] = field(default_factory=tuple)
 
+    @property
+    def matched_count(self) -> int:
+        """Return how many asked keywords the dossier covers (the N of "N of M")."""
+        return len(self.matched_keywords)
+
+    @property
+    def asked_count(self) -> int:
+        """Return how many of the posting's keywords this category asks (the M of "N of M")."""
+        return len(self.matched_keywords) + len(self.gap_keywords)
+
+    def counts_text(self) -> str:
+        """Return the display text for this category's asked-keyword count.
+
+        Returns:
+            ``"N of M asked"``, or ``"not asked (counts as full coverage)"`` when
+            the posting asks nothing of this category.
+        """
+        if self.asked_count == 0:
+            return "not asked (counts as full coverage)"
+        return f"{self.matched_count} of {self.asked_count} asked"
+
+
+@dataclass(frozen=True, slots=True)
+class NegationWarning:
+    """A dossier line that negates a skill the match still counted.
+
+    Attributes:
+        file: The dossier file the line is in (e.g. ``"Capabilities.md"``).
+        heading: The heading the line sits under.
+        line: The line's text, verbatim.
+        keywords: The matched posting keywords the negation sits next to.
+    """
+
+    file: str
+    heading: str
+    line: str
+    keywords: tuple[str, ...]
+
 
 @dataclass(frozen=True, slots=True)
 class MatchResult:
@@ -244,6 +283,8 @@ class MatchResult:
             separately from per-keyword ``gaps`` since a category can be
             "weak" overall without every individual keyword being missing.
         alert_level: Overall severity derived from the score and red flags.
+        negation_warnings: Dossier lines that negate a keyword this match
+            counted. Display only: they never change the score or alert level.
     """
 
     g_force_score: float
@@ -252,3 +293,73 @@ class MatchResult:
     red_flags: tuple[str, ...] = field(default_factory=tuple)
     weak_categories: tuple[str, ...] = field(default_factory=tuple)
     alert_level: AlertLevel = AlertLevel.WARNING
+    negation_warnings: tuple[NegationWarning, ...] = field(default_factory=tuple)
+
+    @property
+    def matched_count(self) -> int:
+        """Return how many distinct asked keywords the dossier covers.
+
+        A keyword listed by two categories counts once.
+        """
+        return len({k for c in self.category_scores for k in c.matched_keywords})
+
+    @property
+    def asked_count(self) -> int:
+        """Return how many distinct posting keywords the template asks about.
+
+        Only keywords the template lists count (a category with no keywords
+        asks about every posting keyword), so this is not every word the
+        posting uses.
+        """
+        return len(
+            {k for c in self.category_scores for k in (*c.matched_keywords, *c.gap_keywords)}
+        )
+
+    def counts_text(self) -> str:
+        """Return the display text for the overall asked-keyword count.
+
+        Returns:
+            ``"N of M template keywords in this posting are in your dossier"``,
+            or a plain note when the template asks nothing of the posting.
+        """
+        if self.asked_count == 0:
+            return "No template keywords found in this posting"
+        return (
+            f"{self.matched_count} of {self.asked_count} template keywords "
+            "in this posting are in your dossier"
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the JSON-serializable form used by ``qv sync-ast --json`` and the desktop.
+
+        Returns:
+            A dict of the score, alert level, gaps, red flags, weak categories,
+            per-category detail, the asked-keyword counts and the negation warnings.
+        """
+        return {
+            "g_force_score": self.g_force_score,
+            "alert_level": self.alert_level.value,
+            "gaps": list(self.gaps),
+            "red_flags": list(self.red_flags),
+            "weak_categories": list(self.weak_categories),
+            "categories": [
+                {
+                    "name": c.name,
+                    "weight": c.weight,
+                    "coverage": c.coverage,
+                    "matched_keywords": list(c.matched_keywords),
+                    "gap_keywords": list(c.gap_keywords),
+                    "matched_count": c.matched_count,
+                    "asked_count": c.asked_count,
+                    "counts_text": c.counts_text(),
+                }
+                for c in self.category_scores
+            ],
+            "matched_count": self.matched_count,
+            "asked_count": self.asked_count,
+            "counts_text": self.counts_text(),
+            "negation_warnings": [
+                {"file": w.file, "heading": w.heading, "line": w.line, "keywords": list(w.keywords)}
+                for w in self.negation_warnings
+            ],
+        }

@@ -6,9 +6,14 @@ window, or display server is created or required.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+from export_text import pdf_text
+
+from questvector import cli
 from questvector.core import vault
 from questvector.desktop.app import Api
 
@@ -203,3 +208,53 @@ def test_export_bundle_rejects_bad_names_and_writes_nothing_outside(tmp_path: Pa
         assert "Bundle name" in response["error"]
 
     assert {p for p in tmp_path.rglob("*")} == before
+
+
+def _negated_workspace(tmp_path: Path) -> Path:
+    workspace_dir = tmp_path / "ws"
+    Api().launch_workspace(str(workspace_dir))
+    (workspace_dir / "Capabilities.md").write_text(
+        "## Cloud\n- AWS and Terraform automation\n- No hands-on Kubernetes\n", encoding="utf-8"
+    )
+    return workspace_dir
+
+
+def test_sync_ast_matches_the_cli_json_and_includes_weak_categories(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R3: the bridge and `qv sync-ast --json` give one dict, with weak categories."""
+    workspace_dir = _negated_workspace(tmp_path)
+    jd_text = "Needs AWS, Terraform and Kubernetes"
+    jd_path = tmp_path / "jd.txt"
+    jd_path.write_text(jd_text, encoding="utf-8")
+    argv = ["sync-ast", "--dir", str(workspace_dir), "--target", str(jd_path)]
+    cli.main([*argv, "--template", "devops-senior-mgr", "--json"])
+    cli_dict = json.loads(capsys.readouterr().out)
+
+    response = Api().sync_ast(str(workspace_dir), jd_text, "devops-senior-mgr")
+
+    assert response["ok"] is True
+    assert response["data"] == cli_dict
+    assert "weak_categories" in response["data"]
+    assert response["data"]["negation_warnings"][0]["keywords"] == ["kubernetes"]
+    assert all(c["counts_text"] for c in response["data"]["categories"])
+
+
+def test_export_bundle_from_the_desktop_shows_counts_but_not_warnings(tmp_path: Path) -> None:
+    """R8: a PDF exported from the window shows the asked counts and never the warnings."""
+    workspace_dir = _negated_workspace(tmp_path)
+
+    response = Api().export_bundle(
+        str(workspace_dir),
+        "scan",
+        "pdf",
+        "Needs AWS, Terraform and Kubernetes",
+        "devops-senior-mgr",
+    )
+
+    assert response["ok"] is True
+    text = pdf_text(Path(response["data"]["output_path"]))
+    assert "template keywords in this posting are in your dossier" in text
+    assert "No hands-on Kubernetes" in text  # the dossier body is exported as written
+    assert "Check these lines" not in text
+    assert "negat" not in text.lower()

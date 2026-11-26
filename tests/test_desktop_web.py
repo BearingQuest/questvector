@@ -93,3 +93,14 @@ def test_app_js_never_inserts_markup(api: str) -> None:
     """A text scan: a guardrail against reintroducing markup sinks, not proof of safety."""
     source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     assert re.search(re.escape(api), source) is None
+
+
+def test_scan_result_has_places_for_counts_warnings_and_weak_categories() -> None:
+    """R3: the window has the count line, weak categories and the negation list, filled as text."""
+    html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    for element_id in ("gauge-counts", "weak-categories-list", "negation-list"):
+        assert f'id="{element_id}"' in html
+        assert f'"{element_id}"' in source
+    for key in ("counts_text", "weak_categories", "negation_warnings"):
+        assert key in source

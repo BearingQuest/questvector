@@ -54,6 +54,7 @@ from typing import Any
 import yaml
 
 from questvector.config import WEIGHT_SUM_TARGET, WEIGHT_SUM_TOLERANCE
+from questvector.core.markdown_parser import tokenize
 from questvector.core.models import MissionTemplate, TemplateCategory
 from questvector.core.normalize import normalized_tokens
 from questvector.exceptions import ValidationError
@@ -160,13 +161,21 @@ def _normalize_keyword(raw: Any, *, template_id: str, category: str) -> str:
 
     Raises:
         ValidationError: If the keyword does not normalize to exactly one token
-            (a multi-word keyword could never match a single token).
+            (a multi-word keyword could never match a single token), or that
+            token is a stopword or one letter (``tokenize`` drops it, so it
+            could never match either).
     """
     tokens = normalized_tokens(str(raw))
     if len(tokens) != 1:
         raise ValidationError(
             f"Mission template '{template_id}' keyword {str(raw)!r} must be exactly one "
             "word after normalization",
+            context={"template_id": template_id, "category": category, "keyword": str(raw)},
+        )
+    if not tokenize(tokens[0]):
+        raise ValidationError(
+            f"Mission template '{template_id}' category '{category}' keyword {str(raw)!r} is a "
+            "common word or a single letter, which matching ignores, so it could never match",
             context={"template_id": template_id, "category": category, "keyword": str(raw)},
         )
     return tokens[0]

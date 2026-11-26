@@ -15,13 +15,11 @@ import base64
 import importlib.util
 import json
 import logging
-import re
-import zipfile
-import zlib
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from export_text import docx_text, pdf_text
 
 from questvector import cli
 from questvector.core import vault
@@ -81,34 +79,6 @@ def _assert_flow_clean(capsys: pytest.CaptureFixture[str], caplog: pytest.LogCap
     _assert_clean(captured.err, "stderr")
     _assert_clean(caplog.text, "logs")
     return captured.out + captured.err
-
-
-def _decode_pdf_stream(data: bytes) -> bytes:
-    """Undo ReportLab's stream filters: ASCII85 (ending in ``~>``) then Flate."""
-    data = data.strip()
-    if data.endswith(b"~>"):
-        data = base64.a85decode(data[:-2].removeprefix(b"<~"))
-    return zlib.decompress(data)
-
-
-def _pdf_text(path: Path) -> str:
-    """Return a PDF's raw bytes plus every stream, decoded."""
-    raw = path.read_bytes()
-    parts = [raw.decode("latin-1")]
-    for match in re.finditer(rb"stream\r?\n(.*?)endstream", raw, re.S):
-        try:
-            parts.append(_decode_pdf_stream(match.group(1)).decode("latin-1"))
-        except zlib.error, ValueError:
-            continue  # a stream with another filter (none in ReportLab's text output)
-    return "\n".join(parts)
-
-
-def _docx_text(path: Path) -> str:
-    """Return the text of every part inside a DOCX (zip) file."""
-    with zipfile.ZipFile(path) as archive:
-        return "\n".join(
-            archive.read(name).decode("utf-8", "replace") for name in archive.namelist()
-        )
 
 
 def _set_key(
@@ -189,7 +159,7 @@ def test_export_with_narrative_leaks_nothing(
     assert generator_cls.call_args.args[0] == API_KEY_MARKER
     _assert_flow_clean(capsys, caplog)
     bundle = workspace_dir / "bundles" / f"resume.{fmt}"
-    text = _pdf_text(bundle) if fmt == "pdf" else _docx_text(bundle)
+    text = pdf_text(bundle) if fmt == "pdf" else docx_text(bundle)
     # Positive control: the decoding works, so a missing marker means something.
     assert "Generated narrative text" in text
     _assert_clean(text, f"the exported {fmt} bundle")

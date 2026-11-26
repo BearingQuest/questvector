@@ -61,6 +61,7 @@
         </svg>
         <div class="gauge-readout" id="gauge-readout">--.-%</div>
         <div class="gauge-label" id="gauge-alert">SCAN COMPLETE</div>
+        <div class="gauge-label" id="gauge-counts"></div>
       </div>
 
       <div class="hud-grid">
@@ -71,6 +72,10 @@
         <div>
           <h3 class="text-warning">Gaps</h3>
           <ul id="gaps-list" class="hud-list warning"></ul>
+          <h3 class="text-warning">Weak Categories</h3>
+          <ul id="weak-categories-list" class="hud-list warning"></ul>
+          <h3 class="text-warning">Check These Lines (negated skills still count)</h3>
+          <ul id="negation-list" class="hud-list warning"></ul>
           <h3 class="text-critical">Red Flags</h3>
           <ul id="red-flags-list" class="hud-list critical"></ul>
         </div>
