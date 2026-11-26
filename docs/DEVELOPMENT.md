@@ -21,8 +21,8 @@ uv sync --all-extras               # creates .venv from uv.lock
 `uv sync` installs the exact versions in `uv.lock`, plus the `dev`
 dependency group: pytest, mypy, ruff, and the type stubs mypy needs.
 `--all-extras` adds the three cloud AI provider SDKs (`[llm]`). Without it,
-the 24 tests that patch those SDKs skip with the reason shown; install it to
-run all 255 that run by default (the live tests are opt-in; see below).
+the 27 tests that patch those SDKs skip with the reason shown; install it to
+run all 618 that run by default (the live tests are opt-in; see below).
 Run commands with `uv run` (for example `uv run qv --version`), or
 `source .venv/bin/activate` first. Running the desktop app
 (`uv run python -m questvector.desktop.app`) also needs pywebview's platform
@@ -387,7 +387,10 @@ deleted.
 1. On a branch: in `CHANGELOG.md`, rename `[Unreleased]` to
    `## [X.Y.Z] - YYYY-MM-DD`, start a new empty `[Unreleased]` above it, and
    update the compare links at the bottom. Bump `__version__` in
-   `questvector/__init__.py` to `X.Y.Z` (`pyproject.toml` reads it). Open a
+   `questvector/__init__.py` to `X.Y.Z` (`pyproject.toml` reads it). Then run
+   `uv sync --all-extras --reinstall-package questvector`; a plain `uv sync`
+   keeps the old installed version, and `tests/test_cli.py` checks they
+   match. Open a
    pull request and merge it.
 2. Tag the merged commit on `main` and push the tag:
 

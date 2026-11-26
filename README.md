@@ -95,7 +95,7 @@ Then install the wheel in its own virtual environment:
 ```bash
 python3.14 -m venv ~/.questvector-venv
 source ~/.questvector-venv/bin/activate
-python -m pip install "./questvector-1.1.0-py3-none-any.whl[llm]"   # omit [llm] to skip all optional LLM SDKs
+python -m pip install "./questvector-<version>-py3-none-any.whl[llm]"   # omit [llm] to skip all optional LLM SDKs
 ```
 
 For local, offline narrative generation instead of the cloud SDKs, install [Ollama](https://ollama.com/download); see "Optional LLM narrative generation" below.
@@ -163,7 +163,7 @@ uv sync --all-extras
 uv run pytest                                   # the whole suite; live tests skip unless turned on
 uv run pytest --cov=questvector --cov-report=term-missing
 ```
-24 of the tests exercise the cloud AI providers and need their SDKs installed (`[llm]`); without them those tests skip with the reason shown. Opt-in live tests run against a local Ollama server and against remote providers; they're skipped unless you turn them on (see `docs/DEVELOPMENT.md`). GitHub Actions runs the suite, type checks, and lint on every pull request. Three further workflows aren't required checks: a daily dependency audit, an OpenSSF Scorecard analysis, and a Claude review of each pull request ([ADR-0022](docs/decisions/0022-scheduled-audit-scorecard-and-claude-review.md)). Linting, type checks, and the full contributor workflow are in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+27 of the tests exercise the cloud AI providers and need their SDKs installed (`[llm]`); without them those tests skip with the reason shown. Opt-in live tests run against a local Ollama server and against remote providers; they're skipped unless you turn them on (see `docs/DEVELOPMENT.md`). GitHub Actions runs the suite, type checks, and lint on every pull request. Three further workflows aren't required checks: a daily dependency audit, an OpenSSF Scorecard analysis, and a Claude review of each pull request ([ADR-0022](docs/decisions/0022-scheduled-audit-scorecard-and-claude-review.md)). Linting, type checks, and the full contributor workflow are in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 ### Version
 ```bash
