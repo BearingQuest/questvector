@@ -4,6 +4,7 @@ These exercise the JS/Python bridge logic directly -- no pywebview runtime,
 window, or display server is created or required.
 """
 
+# The en dash is part of the resume date range under test.
 from __future__ import annotations
 
 import json
@@ -283,3 +284,68 @@ def test_export_bundle_from_the_desktop_shows_counts_but_not_warnings(tmp_path: 
     assert "No hands-on Kubernetes" in text  # the dossier body is exported as written
     assert "Check these lines" not in text
     assert "negat" not in text.lower()
+
+
+def resume_api(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Api, Path]:
+    import shutil
+    from datetime import date
+
+    from questvector.desktop import app
+
+    workspace_dir = tmp_path / "ws"
+    shutil.copytree(Path(__file__).parent / "fixtures" / "resume", workspace_dir)
+    monkeypatch.setattr(app, "_today", lambda: date(2026, 11, 27))
+    return Api(), workspace_dir
+
+
+def test_export_bundle_resume_style_writes_a_resume_and_reports_notes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R9: the bridge's resume style writes the resume, with the cutoff and what it moved."""
+    api, workspace_dir = resume_api(tmp_path, monkeypatch)
+
+    response = api.export_bundle(str(workspace_dir), "cv", "pdf", None, None, "resume", 20)
+
+    assert response["ok"] is True
+    data = response["data"]
+    assert data["style"] == "resume" and data["pdf_pages"] == 1
+    assert data["notes"][0].startswith("Moved 1 role(s)")
+    assert Path(data["output_path"]).read_bytes()[:5] == b"%PDF-"
+
+
+def test_export_bundle_resume_style_errors_come_back_as_envelopes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R9: a missing Contact.md, a bad cutoff, a cutoff without the resume style or an unknown
+    style each return an error envelope and write nothing."""
+    api, workspace_dir = resume_api(tmp_path, monkeypatch)
+    directory = str(workspace_dir)
+
+    assert (
+        "from 1 to 60"
+        in api.export_bundle(directory, "cv", "docx", None, None, "resume", 0)["error"]
+    )
+    assert (
+        "needs the resume style"
+        in api.export_bundle(directory, "cv", "docx", None, None, "report", 20)["error"]
+    )
+    assert (
+        "Unknown export style"
+        in api.export_bundle(directory, "cv", "docx", None, None, "cv")["error"]
+    )
+    (workspace_dir / "Contact.md").unlink()
+    missing = api.export_bundle(directory, "cv", "docx", None, None, "resume")
+    assert missing["ok"] is False and str(workspace_dir / "Contact.md") in missing["error"]
+    assert not (workspace_dir / "bundles").exists()
+
+
+def test_export_bundle_defaults_to_the_report_style(tmp_path: Path) -> None:
+    """R9: without a style the bridge exports the report, as before."""
+    workspace_dir = tmp_path / "ws"
+    api = Api()
+    api.launch_workspace(str(workspace_dir))
+
+    response = api.export_bundle(str(workspace_dir), "bundle", "docx")
+
+    assert response["ok"] is True
+    assert response["data"] == {"output_path": str(workspace_dir / "bundles" / "bundle.docx")}

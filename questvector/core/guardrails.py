@@ -170,7 +170,7 @@ def strip_extras(raw: str) -> tuple[str, tuple[str, ...]]:
     return " ".join(summary_lines), tuple(removed)
 
 
-def _sentences(text: str) -> list[str]:
+def split_sentences(text: str) -> list[str]:
     return [part.strip() for part in _SENTENCE_SPLIT_RE.split(text) if part.strip()]
 
 
@@ -212,7 +212,7 @@ def check_narrative(raw: str, sent_text: str) -> NarrativeCheck:
     source_depth = {_depth_key(m.group(0)) for m in _DEPTH_RE.finditer(sent_text)}
 
     flags: list[NarrativeFlag] = []
-    for sentence in _sentences(text):
+    for sentence in split_sentences(text):
         numbers = [
             m.group(0)
             for m in _NUMBER_RE.finditer(normalize_text(sentence))

@@ -11,7 +11,8 @@ Commands
         Parse a job description, run the Micro-Diff Matching Engine against
         the workspace dossier, and print the G-Force match score.
     qv export --bundle NAME --format {pdf,docx} [--dir PATH]
-               [--target JD_FILE --template TEMPLATE_ID] [--narrative] [--json]
+               [--target JD_FILE --template TEMPLATE_ID] [--narrative]
+               [--style {report,resume}] [--cutoff-years [N]] [--json]
         Compile the dossier (optionally with a match summary and an
         LLM-generated narrative) into a PDF or DOCX bundle. A generated
         narrative is checked first: extras are stripped and doubtful
@@ -40,11 +41,14 @@ import getpass
 import json
 import sys
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 
 from questvector import __version__
+from questvector.config import CONTACT_FILENAME
 from questvector.core import matcher, templates, workspace
-from questvector.core.exporter import export_bundle, resolve_bundle_path
+from questvector.core.contact import parse_contact
+from questvector.core.exporter import export_bundle, export_resume, resolve_bundle_path
 from questvector.core.guardrails import NarrativeCheck, check_narrative
 from questvector.core.llm import (
     PROVIDERS,
@@ -52,12 +56,35 @@ from questvector.core.llm import (
     create_narrative_generator,
     dossier_context_for_prompt,
 )
-from questvector.core.markdown_parser import parse_dossier
+from questvector.core.markdown_parser import ROLE_HEADING_EXAMPLE, parse_dossier
 from questvector.core.models import MissionTemplate
+from questvector.core.resume import (
+    DEFAULT_CUTOFF_YEARS,
+    MAX_CUTOFF_YEARS,
+    MIN_CUTOFF_YEARS,
+    build_resume,
+    validate_cutoff_years,
+)
 from questvector.core.vault import VaultData, load_vault, update_vault
-from questvector.exceptions import LLMError, QuestVectorError, VaultError
+from questvector.exceptions import ExportError, LLMError, QuestVectorError, VaultError
 
 _VAULT_FILENAME = ".questvector.vault"
+
+
+def _today() -> date:
+    """Return today's date. The one place the CLI reads the clock; tests replace it."""
+    return date.today()
+
+
+def _cutoff_years_arg(value: str) -> int:
+    """Parse a ``--cutoff-years`` value for argparse (whole years, 1 to 60)."""
+    try:
+        return validate_cutoff_years(int(value))
+    except ValueError, ExportError:
+        raise argparse.ArgumentTypeError(
+            f"must be a whole number of years from {MIN_CUTOFF_YEARS} to {MAX_CUTOFF_YEARS}, "
+            f"got {value!r}"
+        ) from None
 
 
 def _resolve_workspace_dir(raw: str | None) -> Path:
@@ -210,7 +237,16 @@ def _cmd_export(args: argparse.Namespace) -> int:
     # Checked first: a bad name must fail before any narrative network call.
     output_dir = workspace_dir / "bundles"
     output_path = resolve_bundle_path(output_dir, args.bundle, args.format)
-    dossier = parse_dossier(workspace_dir)
+    resume_style = args.style == "resume"
+    if args.cutoff_years is not None and not resume_style:
+        raise QuestVectorError("--cutoff-years needs --style resume")
+    dossier = parse_dossier(workspace_dir, require_roles=resume_style)
+    today = _today()
+    contact = None
+    if resume_style:
+        contact = parse_contact(workspace_dir / CONTACT_FILENAME)
+        # Fail on a role that conflicts with the cutoff before any narrative network call.
+        build_resume(dossier, contact, narrative=None, cutoff_years=args.cutoff_years, today=today)
 
     match_result = None
     if args.target and args.template:
@@ -246,24 +282,45 @@ def _cmd_export(args: argparse.Namespace) -> int:
         narrative = narrative_check.text
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    export_bundle(
-        dossier, output_path, fmt=args.format, match_result=match_result, narrative=narrative
-    )
+    notes: tuple[str, ...] = ()
+    pdf_pages: int | None = None
+    if contact is not None:
+        result = export_resume(
+            dossier,
+            contact,
+            output_path,
+            fmt=args.format,
+            narrative=narrative,
+            cutoff_years=args.cutoff_years,
+            today=today,
+        )
+        notes, pdf_pages = result.notes, result.pdf_pages
+    else:
+        export_bundle(
+            dossier, output_path, fmt=args.format, match_result=match_result, narrative=narrative
+        )
     report_lines = narrative_check.report_lines() if narrative_check else []
     if args.json:
         print(
             json.dumps(
                 {
                     "output_path": str(output_path),
+                    "style": args.style,
                     "narrative": narrative_check.to_dict() if narrative_check else None,
+                    "notes": list(notes),
+                    "pdf_pages": pdf_pages,
                 },
                 indent=2,
             )
         )
         return 0
     print(f"[QV] Exported bundle: {output_path}")
+    if pdf_pages is not None:
+        print(f"[QV] PDF pages: {pdf_pages}")
     for line in report_lines:
         print(f"[QV] {line}")
+    for note in notes:
+        print(f"[QV] Note: {note}")
     return 0
 
 
@@ -381,6 +438,25 @@ def _build_parser() -> argparse.ArgumentParser:
         "--target", help="Optional job description file to include a match summary for"
     )
     export.add_argument("--template", help="Mission template id (required if --target is given)")
+    export.add_argument(
+        "--style",
+        choices=("report", "resume"),
+        default="report",
+        help="report: match report plus the whole dossier (default); resume: a one-column "
+        "resume that screening software can read (needs Contact.md and role headings "
+        f"like '{ROLE_HEADING_EXAMPLE}')",
+    )
+    export.add_argument(
+        "--cutoff-years",
+        nargs="?",
+        const=DEFAULT_CUTOFF_YEARS,
+        default=None,
+        type=_cutoff_years_arg,
+        metavar="N",
+        help=f"With --style resume: move roles that ended more than N years ago "
+        f"(default {DEFAULT_CUTOFF_YEARS} when given without a value) to a dateless "
+        "Earlier Career line. Off unless given.",
+    )
     export.add_argument("--json", action="store_true", help="Emit JSON output")
     export.add_argument(
         "--narrative",

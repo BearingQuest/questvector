@@ -1,8 +1,12 @@
 """Unit tests for questvector.cli (the `qv` command-line interface)."""
 
+# ruff: noqa: RUF001
+# The en dash is part of the resume date range under test.
 from __future__ import annotations
 
 import json
+import shutil
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -584,3 +588,175 @@ def test_export_from_the_cli_shows_counts_but_not_warnings(tmp_path: Path) -> No
         assert "not asked" in text
         assert "counts as full coverage" in text
         assert "Check these lines" not in text
+
+
+RESUME_FIXTURES = Path(__file__).parent / "fixtures" / "resume"
+TODAY = date(2026, 11, 27)
+
+
+@pytest.fixture()
+def resume_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A workspace holding the synthetic resume fixtures, with ``cli._today`` fixed."""
+    workspace_dir = tmp_path / "ws"
+    shutil.copytree(RESUME_FIXTURES, workspace_dir)
+    monkeypatch.setattr(cli, "_today", lambda: TODAY)
+    return workspace_dir
+
+
+def resume_args(workspace_dir: Path, *extra: str, fmt: str = "docx") -> list[str]:
+    return [
+        "export",
+        "--dir",
+        str(workspace_dir),
+        "--bundle",
+        "cv",
+        "--format",
+        fmt,
+        "--style",
+        "resume",
+        *extra,
+    ]
+
+
+def test_resume_export_writes_a_docx_without_a_cutoff_by_default(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R9: --style resume writes the resume; with no cutoff every role keeps its dates."""
+    assert cli.main(resume_args(resume_workspace)) == 0
+
+    text = docx_text(resume_workspace / "bundles" / "cv.docx")
+    assert "Jordan Example" in text
+    assert "Pinecrest Mills | Sep 2002" in text
+    assert "Earlier Career" not in text
+    assert "G-Force" not in text
+    assert "[QV] Exported bundle:" in capsys.readouterr().out
+
+
+def test_cutoff_years_without_a_value_means_20(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R9: a bare --cutoff-years is 20 years, and says what it moved and left out."""
+    assert cli.main(resume_args(resume_workspace, "--cutoff-years")) == 0
+
+    text = docx_text(resume_workspace / "bundles" / "cv.docx")
+    assert "Earlier Career" in text
+    assert "Pinecrest Mills | Sep 2002" not in text
+    out = capsys.readouterr().out
+    assert "[QV] Note: Moved 1 role(s) that ended before the cutoff to Earlier Career" in out
+    assert "[QV] Note: Left out 1 line(s) that mention a year before 2006" in out
+
+
+def test_cutoff_years_takes_a_value_and_refuses_a_role_that_straddles_it(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R9: --cutoff-years 15 puts the cutoff at Nov 2011; a role from 2008 to 2016 is refused."""
+    assert cli.main(resume_args(resume_workspace, "--cutoff-years", "15")) == 1
+
+    err = capsys.readouterr().err
+    assert "Harbor Light Logistics (Jun 2008" in err
+    assert "started before the cutoff year 2011" in err
+    assert not (resume_workspace / "bundles" / "cv.docx").exists()
+
+
+@pytest.mark.parametrize("value", ["0", "61", "-5", "abc", "1.5"])
+def test_export_cutoff_years_values_outside_1_to_60_give_a_clear_error(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str], value: str
+) -> None:
+    """R9: 0, 61, -5 and abc each stop with an error naming the option and the range."""
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(resume_args(resume_workspace, "--cutoff-years", value))
+
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "--cutoff-years" in err
+    assert "whole number of years from 1 to 60" in err
+
+
+@pytest.mark.parametrize("style_args", [[], ["--style", "report"]])
+def test_cutoff_years_without_the_resume_style_gives_a_clear_error(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str], style_args: list[str]
+) -> None:
+    """R9: --cutoff-years only means something for the resume style, and says so."""
+    args = ["export", "--dir", str(resume_workspace), "--bundle", "cv", "--format", "docx"]
+
+    assert cli.main([*args, *style_args, "--cutoff-years", "20"]) == 1
+    assert "--cutoff-years needs --style resume" in capsys.readouterr().err
+    assert not (resume_workspace / "bundles").exists()
+
+
+def test_resume_without_contact_md_names_the_path(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R9: a missing Contact.md is one error naming the path it looked at."""
+    (resume_workspace / "Contact.md").unlink()
+
+    assert cli.main(resume_args(resume_workspace)) == 1
+    assert str(resume_workspace / "Contact.md") in capsys.readouterr().err
+
+
+def test_resume_with_old_style_headings_lists_them_and_the_form(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R9: the resume style names each heading that isn't in the role form; report still works."""
+    (resume_workspace / "Chronology.md").write_text(
+        "## Acme Corp — Senior SRE (2020-2023)\n- a\n", encoding="utf-8"
+    )
+
+    assert cli.main(resume_args(resume_workspace)) == 1
+    err = capsys.readouterr().err
+    assert '"Acme Corp — Senior SRE (2020-2023)"' in err
+    assert "Title — Employer (Mon YYYY – Mon YYYY or Present)" in err
+    report = ["export", "--dir", str(resume_workspace), "--bundle", "r", "--format", "pdf"]
+    assert cli.main(report) == 0
+
+
+def test_resume_pdf_reports_its_page_count_and_json_carries_it(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R9: a PDF resume prints its ReportLab page count; --json has style, notes and pages."""
+    assert cli.main(resume_args(resume_workspace, fmt="pdf")) == 0
+    assert "[QV] PDF pages: 1" in capsys.readouterr().out
+
+    assert cli.main(resume_args(resume_workspace, "--cutoff-years", "20", "--json", fmt="pdf")) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["style"] == "resume"
+    assert payload["pdf_pages"] == 1
+    assert payload["notes"][0].startswith("Moved 1 role(s)")
+
+
+def test_contact_details_never_reach_the_narrative_prompt(
+    resume_workspace: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """R9: with --narrative, no Contact.md value is in the prompt, yet all are in the resume."""
+    cli.main(["launch", "--dir", str(resume_workspace)])  # adds templates, keeps the files
+    jd_path = tmp_path / "jd.txt"
+    jd_path.write_text("Looking for AWS Terraform experience", encoding="utf-8")
+    monkeypatch.setattr(cli.getpass, "getpass", lambda *_a, **_k: "pass")
+    vault.save_vault(
+        resume_workspace / ".questvector.vault",
+        "pass",
+        vault.VaultData(llm_provider="anthropic", llm_api_keys={"anthropic": "sk-fake"}),
+    )
+    args = resume_args(
+        resume_workspace, "--target", str(jd_path), "--template", "devops-senior-mgr", "--narrative"
+    )
+
+    with patch("questvector.core.llm.AnthropicNarrativeGenerator") as mock_generator_cls:
+        generate = mock_generator_cls.return_value.generate
+        generate.return_value = "I run platform teams on AWS."
+        assert cli.main(args) == 0
+
+    prompt = generate.call_args.args[0]
+    values = [
+        "Jordan",
+        "Example",
+        "jordan.example@example.com",
+        "512 555 0100",
+        "Austin",
+        "linkedin.com",
+        "github.com",
+    ]
+    assert not [v for v in values if v in prompt]
+    text = docx_text(resume_workspace / "bundles" / "cv.docx")
+    assert all(v in text for v in values)
+    assert "I run platform teams on AWS." in text

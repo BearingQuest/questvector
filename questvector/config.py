@@ -45,6 +45,10 @@ DOSSIER_FILENAMES: tuple[str, ...] = (
     IMPACT_FILENAME,
 )
 
+# Optional contact details for the resume export (never part of the dossier, never sent
+# to an AI provider; see ADR-0032).
+CONTACT_FILENAME = "Contact.md"
+
 # Workspace layout.
 TEMPLATES_DIRNAME = "templates"
 STARTER_TEMPLATES_DIRNAME = "starter"

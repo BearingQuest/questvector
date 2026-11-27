@@ -189,14 +189,29 @@ Acceptance criteria use EARS-style phrasing.
   counts beside each category and the overall count. It SHALL NOT include
   negation warnings (ADR-0030).
 
-**R9 — ATS-safe resume output.** **Planned** (backlog item 5).
+**R9 — ATS-safe resume output.** **Built** (backlog item 5; ADR-0032).
+- WHERE the user runs `qv export --style resume` (or picks the Resume style in
+  the desktop window), THEN the system SHALL write a resume instead of the match
+  report. The report remains the default style.
 - Exported resumes SHALL use a single column, with no tables, text boxes,
   columns, tab stops, or content in page headers and footers.
 - Each role SHALL have a title line and a "Company | Mon YYYY – Mon YYYY" line,
-  with the employer repeated on every role.
-- Email and profile URLs SHALL be real hyperlinks.
-- WHERE the user enables it, roles that ended more than 20 years ago SHALL move
-  to a dateless "Earlier Career" line.
+  with the employer repeated on every role. The resume style SHALL require every
+  Chronology heading in the form `Title — Employer (Mon YYYY – Mon YYYY)` (or
+  `Present`) and SHALL name each heading that doesn't fit.
+- The resume SHALL show the contact block from an optional `Contact.md`
+  (name and email required), which SHALL stay on the machine and SHALL NOT be
+  sent to an AI provider. Email and profile URLs SHALL be real hyperlinks.
+- The resume SHALL show the summary (when one was generated, CLI only for now),
+  Capability domain names only, up to 6 bullets per role, and the first Impact
+  bullet of up to 5 groups. It SHALL NOT show the match score, a table or gaps.
+- WHERE the user passes `--cutoff-years [N]` (20 when no value is given; 1 to
+  60), roles that ended more than N years before today, measured on the end
+  month, SHALL move to one dateless "Earlier Career" line, and no year before the
+  cutoff SHALL appear in the file: a role whose own heading would print one is
+  refused by name, and other lines that mention one are left out and reported.
+  The cutoff is off by default.
+- The desktop resume export has no summary yet (backlog item 15).
 
 **R10 — Automated output check.** **Planned** (backlog item 5).
 - The system SHALL check an exported DOCX by extracting its text through at

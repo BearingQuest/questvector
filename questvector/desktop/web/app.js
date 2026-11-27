@@ -212,9 +212,16 @@ document.getElementById("btn-export").addEventListener("click", async () => {
   const dir = currentWorkspaceDir();
   const name = document.getElementById("export-name").value.trim();
   const fmt = document.getElementById("export-format").value;
+  const style = document.getElementById("export-style").value;
+  const cutoffYears = document.getElementById("export-cutoff").checked ? 20 : null;
   if (!dir || !name) return setStatus("WORKSPACE AND BUNDLE NAME REQUIRED", "warning");
-  const response = await api.export_bundle(dir, name, fmt, lastScan.jdText, lastScan.templateId);
+  if (cutoffYears !== null && style !== "resume") {
+    return setStatus("THE CUTOFF NEEDS THE RESUME STYLE", "warning");
+  }
+  const response = await api.export_bundle(
+    dir, name, fmt, lastScan.jdText, lastScan.templateId, style, cutoffYears);
   renderJson("export-output", response);
+  setList(document.getElementById("export-notes"), response.ok && response.data.notes ? response.data.notes : []);
   setStatus(response.ok ? "BUNDLE EXPORTED" : "EXPORT FAILED", response.ok ? "success" : "critical");
 });
 

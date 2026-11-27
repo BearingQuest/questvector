@@ -114,3 +114,14 @@ def test_narrative_result_has_places_for_removed_text_and_flags() -> None:
         assert f'id="{element_id}"' in html
         assert f'"{element_id}"' in source
     assert "response.data" in source and "flag.sentence" in source
+
+
+def test_export_panel_has_a_style_choice_a_cutoff_box_and_a_notes_list() -> None:
+    """R9: the export panel offers the resume style and cutoff, and lists what was left out."""
+    html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    for element_id in ("export-style", "export-cutoff", "export-notes"):
+        assert f'id="{element_id}"' in html
+        assert f'"{element_id}"' in source
+    assert 'value="resume"' in html
+    assert "api.export_bundle(" in source and "style, cutoffYears" in source

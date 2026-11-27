@@ -42,7 +42,8 @@ _DOSSIER_STUBS: dict[str, str] = {
     ),
     # RUF001: the en dash is part of the stub text written into new workspaces.
     CHRONOLOGY_FILENAME: (
-        "## Company — Role (Start–End)\n- Add responsibilities and achievements as bullet points.\n"  # noqa: RUF001
+        "## Role Title — Company (Jan 2020 – Mar 2023)\n"  # noqa: RUF001
+        "- Add responsibilities and achievements as bullet points.\n"
     ),
     IMPACT_FILENAME: ("## Impact Summary\n- Add quantified impact statements as bullet points.\n"),
 }
