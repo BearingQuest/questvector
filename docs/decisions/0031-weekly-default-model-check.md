@@ -89,9 +89,25 @@ and fail loudly when it is gone. The second was chosen.
   reads table cells only.
 - **ADR-0001.** The app makes no new network call. This is CI only, as backlog
   item 18 says; CI already uses the network (setup-uv, pip-audit, Scorecard).
-- **Semgrep.** No `nosemgrep` comment was added. Semgrep could not be run in
-  the build sandbox (its rules come from semgrep.dev), so the first scan is the
-  required `semgrep` job. See the pull request for the outcome.
+- **Semgrep suppression (one).** Semgrep could not run in the build sandbox
+  (its rules come from semgrep.dev), so the first scan was the `semgrep` job on
+  PR #57. It flagged
+  `python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected`
+  on the `urllib.request.urlopen(request, ...)` call in `GitHubIssues._call` in
+  `scripts/check_default_models.py` (line 501 when flagged; the call now sits
+  in the helper `_send_to_github`, which `_call` alone uses, so the comment fits
+  the line limit). The owner approved a `nosemgrep` on that one call on 26 Nov
+  2026, the same form as the Ollama call in `questvector/core/llm.py`
+  ([0011](0011-github-security-baseline.md)).
+  Reason: the rule fears a URL that urllib opens as `file://` or another scheme.
+  Here `_call` raises `ScriptError` for any URL that doesn't start with
+  `self._base`, the `https://api.github.com/repos/<owner>/<name>/issues` URL
+  built in `__init__`, before the request is built, and `update()` refuses an
+  issue number that isn't an `int`, so a caller can't steer the path. Enforced
+  by `test_github_client_refuses_a_url_outside_the_issues_base_before_any_request`
+  and `test_github_client_update_refuses_a_non_int_issue_number`. The page fetch
+  in `fetch_page` uses an opener, not `urlopen`, and was not flagged; it
+  accepts only https and follows redirects only to https on the same host.
 
 ## Consequences
 - The owner hears about a deprecated default weeks before a user hits it, and

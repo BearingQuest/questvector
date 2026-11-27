@@ -490,6 +490,37 @@ def test_github_client_calls_the_issue_api_with_the_run_token(
     assert fake.calls[0].get_header("Authorization") == "Bearer TOKEN-VALUE"
 
 
+def test_github_client_refuses_a_url_outside_the_issues_base_before_any_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R29: the guard that backs the nosemgrep on urlopen; nothing is sent for a foreign URL."""
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        pytest.fail("urlopen ran for a URL outside the issues base")
+
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden)
+    client = cdm.GitHubIssues("owner/name", "t")
+    for url in (
+        "http://api.github.com/repos/owner/name/issues",
+        "https://evil.example/repos/owner/name/issues",
+        "file:///etc/passwd",
+        "https://api.github.com/repos/other/name/issues",
+    ):
+        with pytest.raises(cdm.ScriptError, match="outside"):
+            client._call("GET", url)
+
+
+def test_github_client_update_refuses_a_non_int_issue_number(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R29: an issue number that isn't an int (a path fragment, a bool) is refused."""
+    monkeypatch.setattr(urllib.request, "urlopen", FakeUrlopen())
+    client = cdm.GitHubIssues("owner/name", "t")
+    for number in ("7/../../x", 7.0, True, None):
+        with pytest.raises(cdm.ScriptError, match="int"):
+            client.update(number, "b")  # type: ignore[arg-type]
+
+
 def test_github_client_errors_are_script_errors_without_the_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

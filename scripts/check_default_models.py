@@ -475,6 +475,14 @@ def fetch_page(url: str, *, sleep: Callable[[float], None] = time.sleep) -> str:
     raise FetchError(f"{last} after {ATTEMPTS} attempts")
 
 
+def _send_to_github(request: urllib.request.Request) -> Any:
+    """Send a request built by ``GitHubIssues._call`` and decode the JSON answer."""
+    # _call refuses any URL that doesn't start with the https://api.github.com issues base.
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+    with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
+        return json.loads(response.read().decode("utf-8"))
+
+
 class GitHubIssues:
     """The GitHub REST issue calls, with the run's own token (HTTPS only)."""
 
@@ -485,6 +493,8 @@ class GitHubIssues:
         self._token = token
 
     def _call(self, method: str, url: str, payload: dict[str, Any] | None = None) -> Any:
+        if not url.startswith(self._base):
+            raise ScriptError("refusing a GitHub call outside the repository's issues URL")
         data = json.dumps(payload).encode("utf-8") if payload is not None else None
         request = urllib.request.Request(  # noqa: S310
             url,
@@ -498,8 +508,7 @@ class GitHubIssues:
             },
         )
         try:
-            with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
-                return json.loads(response.read().decode("utf-8"))
+            return _send_to_github(request)
         except (urllib.error.URLError, TimeoutError, ValueError) as exc:
             code = exc.code if isinstance(exc, urllib.error.HTTPError) else type(exc).__name__
             raise ScriptError(f"GitHub {method} {url.rsplit('/', 1)[-1]} failed: {code}") from exc
@@ -518,6 +527,8 @@ class GitHubIssues:
         return int(created["number"])
 
     def update(self, number: int, body: str) -> None:
+        if type(number) is not int:
+            raise ScriptError("issue number is not an int")
         self._call("PATCH", f"{self._base}/{number}", {"body": body})
 
 
