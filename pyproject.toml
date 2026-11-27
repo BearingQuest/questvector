@@ -45,7 +45,7 @@ dev = [
     "mypy>=1.10",
     "types-PyYAML",
     "types-reportlab",
-    "ruff==0.17.5",
+    "ruff==0.17.6",
 ]
 audit = ["pip-audit==2.10.1"]
 
