@@ -89,9 +89,10 @@ fail_under = 90
 show_missing = true
 
 [tool.mypy]
-# Strict for the whole package (ADR-0023). CI and `make check` run plain `mypy`.
+# Strict for the whole package and the CI scripts (ADR-0023, ADR-0031). CI and
+# `make check` run plain `mypy`.
 strict = true
-files = ["questvector"]
+files = ["questvector", "scripts"]
 
 [tool.ruff]
 line-length = 100

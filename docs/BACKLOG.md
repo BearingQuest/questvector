@@ -565,6 +565,11 @@ without repository activity. If that happens to either check, re-enable it
 from the Actions tab.
 
 ### Weekly check for retired default models
+✅ Done 26 Nov 2026 as `model-check-weekly.yml` and
+`scripts/check_default_models.py`
+([ADR-0031](decisions/0031-weekly-default-model-check.md), PRD R29). The
+60-day note above still applies.
+
 Decided 4 Nov 2026 (owner). A provider can deprecate or
 shut down a default model with little notice: when checked on 4 Nov 2026,
 the Gemini default had been shut down since 1 Jun 2026, and the Anthropic
@@ -596,8 +601,7 @@ What it checks and does:
 ### Daily dependency audit
 ✅ Done 15 Nov 2026 as `pip-audit-daily.yml`
 ([ADR-0022](decisions/0022-scheduled-audit-scorecard-and-claude-review.md)),
-with setup-uv's cache off. The weekly deprecation check above is still
-planned.
+with setup-uv's cache off. The weekly deprecation check above is done too.
 
 Decided 5 Nov 2026 (owner). A new advisory against a locked version shows up
 as a failed scheduled run, which GitHub emails to the owner, before an

@@ -43,6 +43,7 @@ Python core. Read these before changing anything:
 The workflows in `.github/workflows/` run on every pull request: `tests.yml`,
 `template-validation.yml` and `security.yml` (gitleaks, Semgrep, pip-audit, zizmor). Their job
 names are required checks on `main`. Not required: `pip-audit-daily.yml`, `scorecard.yml`,
+`model-check-weekly.yml` (weekly retired-model check; `scripts/check_default_models.py`),
 `claude-review.yml` (inline review comments from the rules in this file) and `release.yml`,
 which runs only when the owner pushes a `v*` tag and creates a draft release the owner
 publishes. `docs/DEVELOPMENT.md` has the detail.

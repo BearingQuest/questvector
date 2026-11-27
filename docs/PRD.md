@@ -297,6 +297,19 @@ Acceptance criteria use EARS-style phrasing.
   `CHANGELOG.md` entry, and every significant design choice SHALL get a record
   in `docs/decisions/`.
 
+**R29 — Weekly retired-model check.** **Built** (26 Nov 2026).
+- WHEN the weekly scheduled run, or a manual run, of `model-check-weekly.yml`
+  finds a default remote model in `questvector/core/llm.py` listed as
+  deprecated or shut down on its provider's deprecation page, THEN it SHALL
+  open or update one GitHub issue naming the model, the date the page gives and
+  the source link, and fail the run.
+- IF a page can't be fetched or its structure isn't recognised, THEN it SHALL
+  open or update a separate issue and fail the run, and SHALL NOT report the
+  default as clear.
+- The check SHALL run in CI only, with no API keys; the app SHALL make no new
+  network call ([ADR-0001](decisions/0001-local-only-distribution.md),
+  [ADR-0031](decisions/0031-weekly-default-model-check.md)).
+
 ### 5.9 Browser app
 
 The browser app follows [ADR-0016](decisions/0016-browser-app-static-pages.md)

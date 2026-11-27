@@ -36,6 +36,7 @@ WORKFLOW_FILES = sorted(WORKFLOWS.glob("*.yml"))
 DAILY = WORKFLOWS / "pip-audit-daily.yml"
 SCORECARD = WORKFLOWS / "scorecard.yml"
 REVIEW = WORKFLOWS / "claude-review.yml"
+MODEL_CHECK = WORKFLOWS / "model-check-weekly.yml"
 RELEASE = WORKFLOWS / "release.yml"
 SECURITY = WORKFLOWS / "security.yml"
 DEPENDABOT = Path(__file__).parent.parent / ".github" / "dependabot.yml"
@@ -407,9 +408,52 @@ def test_claude_review_pins_an_exact_model() -> None:
 def test_new_workflows_are_not_required_checks() -> None:
     contexts = set(_required_contexts())
     assert contexts == REQUIRED_CHECKS
-    for path in (DAILY, SCORECARD, REVIEW):
+    for path in (DAILY, SCORECARD, REVIEW, MODEL_CHECK):
         for job in _jobs(path).values():
             assert job["name"] not in contexts, path.name
+
+
+def test_model_check_runs_weekly_or_by_hand_never_on_pull_requests() -> None:
+    """R29: a weekly schedule off the hour plus workflow_dispatch, so no ruleset change."""
+    triggers = _on(MODEL_CHECK)
+    assert set(triggers) == {"schedule", "workflow_dispatch"}
+    assert len(triggers["schedule"]) == 1
+    minute, _hour, day_of_month, month, weekday = triggers["schedule"][0]["cron"].split()
+    assert minute.isdigit() and minute not in {"0", "00"}  # off the hour
+    assert (day_of_month, month) == ("*", "*")
+    assert weekday.isdigit()  # weekly
+    text = MODEL_CHECK.read_text(encoding="utf-8")
+    assert "pull_request" not in text and "push:" not in text
+
+
+def test_model_check_token_runner_timeout_and_concurrency() -> None:
+    """R29: contents read and issues write only, ubuntu-24.04, a timeout, one run at a time."""
+    workflow = _load(MODEL_CHECK)
+    assert workflow["permissions"] == {"contents": "read"}
+    job = _only_job(MODEL_CHECK)
+    assert job["permissions"] == {"contents": "read", "issues": "write"}
+    assert job["runs-on"] == "ubuntu-24.04"
+    assert job["timeout-minutes"] == 10
+    assert workflow["concurrency"] == {"group": "model-check-weekly", "cancel-in-progress": False}
+
+
+def test_model_check_runs_checkout_setup_uv_and_the_script_with_only_the_run_token() -> None:
+    """R29: no other action, no API key, and the only secret is the run's own token."""
+    steps = _only_job(MODEL_CHECK)["steps"]
+    assert [str(step.get("uses", "")).split("@")[0] for step in steps] == [
+        "actions/checkout",
+        "astral-sh/setup-uv",
+        "",
+    ]
+    assert steps[1]["with"]["enable-cache"] is False
+    assert steps[1]["with"]["version"] == _only_job(DAILY)["steps"][1]["with"]["version"]
+    assert (
+        steps[2]["run"]
+        == "uv run --no-project --python 3.14 python -I scripts/check_default_models.py"
+    )
+    assert steps[2]["env"] == {"GITHUB_TOKEN": "${{ github.token }}"}
+    text = MODEL_CHECK.read_text(encoding="utf-8")
+    assert "secrets." not in text and "API_KEY" not in text
 
 
 def test_dependabot_covers_uv_and_actions_with_a_cooldown_and_grouped_updates() -> None:
