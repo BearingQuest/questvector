@@ -43,3 +43,4 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0029](0029-desktop-text-only-csp-bundle-names.md) | The desktop window renders data as text, sets a strict CSP, and checks bundle names | Accepted | 2026-11-25 |
 | [0030](0030-negation-warnings-and-asked-keyword-counts.md) | Negation warnings and asked-keyword counts; scores and the formula unchanged | Accepted | 2026-11-26 |
 | [0031](0031-weekly-default-model-check.md) | Weekly check for retired default models, in CI only | Accepted | 2026-11-26 |
+| [0032](0032-summary-guardrails-resume-export-file-check.md) | Summary guardrails, resume-style export and a check of the exported file | Accepted | 2026-11-27 |

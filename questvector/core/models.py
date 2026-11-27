@@ -10,6 +10,7 @@ CLI, the desktop JS bridge, and background threads without copying.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from enum import Enum
 from typing import Any
 
@@ -46,6 +47,25 @@ class Capability:
 
 
 @dataclass(frozen=True, slots=True)
+class Role:
+    """A role's structured fields, parsed from a Chronology heading (ADR-0032).
+
+    The heading form is ``Title — Employer (Mon YYYY - Mon YYYY)`` or ``(... - Present)``.
+
+    Attributes:
+        title: The role title (e.g. "Senior DevOps Engineer").
+        employer: The employer.
+        start: The first day of the start month.
+        end: The first day of the end month, or ``None`` for "Present".
+    """
+
+    title: str
+    employer: str
+    start: date
+    end: date | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ChronologyEntry:
     """A single role/timeframe entry parsed from ``Chronology.md``.
 
@@ -55,11 +75,15 @@ class ChronologyEntry:
         bullets: Responsibility/achievement bullet lines under the heading.
         keywords: Lowercased, stopword-filtered tokens extracted from all
             bullets, for use by the matching engine.
+        role: The heading parsed into title, employer and dates, when it uses the
+            ``Title - Employer (Mon YYYY - Mon YYYY)`` form (ADR-0032); ``None``
+            otherwise. Only the resume export needs it.
     """
 
     heading: str
     bullets: tuple[str, ...] = field(default_factory=tuple)
     keywords: frozenset[str] = field(default_factory=frozenset)
+    role: Role | None = None
 
 
 @dataclass(frozen=True, slots=True)

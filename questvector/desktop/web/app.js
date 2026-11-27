@@ -212,9 +212,21 @@ document.getElementById("btn-export").addEventListener("click", async () => {
   const dir = currentWorkspaceDir();
   const name = document.getElementById("export-name").value.trim();
   const fmt = document.getElementById("export-format").value;
+  const style = document.getElementById("export-style").value;
+  const cutoffYears = document.getElementById("export-cutoff").checked ? 20 : null;
   if (!dir || !name) return setStatus("WORKSPACE AND BUNDLE NAME REQUIRED", "warning");
-  const response = await api.export_bundle(dir, name, fmt, lastScan.jdText, lastScan.templateId);
+  if (cutoffYears !== null && style !== "resume") {
+    return setStatus("THE CUTOFF NEEDS THE RESUME STYLE", "warning");
+  }
+  const response = await api.export_bundle(
+    dir, name, fmt, lastScan.jdText, lastScan.templateId, style, cutoffYears);
   renderJson("export-output", response);
+  const check = response.ok ? response.data.check : null;
+  const notes = response.ok && response.data.notes ? response.data.notes : [];
+  setList(document.getElementById("export-notes"), check ? [...notes, ...check.lines] : notes);
+  if (response.ok && check && !check.passed) {
+    return setStatus("BUNDLE EXPORTED, FILE CHECK FAILED", "warning");
+  }
   setStatus(response.ok ? "BUNDLE EXPORTED" : "EXPORT FAILED", response.ok ? "success" : "critical");
 });
 
@@ -270,6 +282,20 @@ document.getElementById("btn-set-key").addEventListener("click", async () => {
   setStatus(response.ok ? "PROVIDER STORED" : "VAULT ERROR", response.ok ? "success" : "critical");
 });
 
+// What the output check stripped and flagged (ADR-0032). Flags are for review only;
+// they are never part of an export. Shown as text, like everything else (ADR-0029).
+function renderNarrativeChecks(data) {
+  const removed = data.removed || [];
+  const flags = data.flags || [];
+  document.getElementById("narrative-removed-heading").textContent = removed.length
+    ? `Removed from the summary (not exported): ${removed.length}` : "";
+  setList(document.getElementById("narrative-removed"), removed);
+  document.getElementById("narrative-flags-heading").textContent = flags.length
+    ? `Review these sentences (they are not blocked): ${flags.length}` : "";
+  setList(document.getElementById("narrative-flags"), flags.map(
+    (flag) => `${flag.terms.join(", ")} (${flag.kind.replace("_", " ")}): ${flag.sentence}`));
+}
+
 document.getElementById("btn-generate-narrative").addEventListener("click", async () => {
   const api = requireApi();
   const dir = currentWorkspaceDir();
@@ -280,6 +306,7 @@ document.getElementById("btn-generate-narrative").addEventListener("click", asyn
   setStatus("CONTACTING LLM (NETWORK CALL)", "warning");
   const response = await api.generate_narrative(dir, lastScan.jdText, passphrase);
   renderJson("vault-output", response);
+  renderNarrativeChecks(response.ok ? response.data : { removed: [], flags: [] });
   setStatus(response.ok ? "NARRATIVE GENERATED" : "NARRATIVE FAILED", response.ok ? "success" : "critical");
 });
 

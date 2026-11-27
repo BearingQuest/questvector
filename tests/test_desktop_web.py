@@ -104,3 +104,32 @@ def test_scan_result_has_places_for_counts_warnings_and_weak_categories() -> Non
         assert f'"{element_id}"' in source
     for key in ("counts_text", "weak_categories", "negation_warnings"):
         assert key in source
+
+
+def test_narrative_result_has_places_for_removed_text_and_flags() -> None:
+    """R14: the window lists what the output check removed and flagged, filled as text."""
+    html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    for element_id in ("narrative-removed", "narrative-flags"):
+        assert f'id="{element_id}"' in html
+        assert f'"{element_id}"' in source
+    assert "response.data" in source and "flag.sentence" in source
+
+
+def test_export_panel_has_a_style_choice_a_cutoff_box_and_a_notes_list() -> None:
+    """R9: the export panel offers the resume style and cutoff, and lists what was left out."""
+    html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    for element_id in ("export-style", "export-cutoff", "export-notes"):
+        assert f'id="{element_id}"' in html
+        assert f'"{element_id}"' in source
+    assert 'value="resume"' in html
+    assert "api.export_bundle(" in source and "style, cutoffYears" in source
+
+
+def test_export_shows_the_file_check_lines_and_failure_as_text() -> None:
+    """R10: the window lists the file check's lines and says when the check failed."""
+    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "check.lines" in source
+    assert "FILE CHECK FAILED" in source

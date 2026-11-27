@@ -15,17 +15,28 @@ GUI toolkit, or pywebview runtime is required to test the bridge logic.
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Any
 
+from questvector.config import CONTACT_FILENAME
 from questvector.core import matcher, templates, workspace
+from questvector.core.contact import parse_contact
+from questvector.core.export_check import check_docx
 from questvector.core.exporter import export_bundle as _export_bundle
-from questvector.core.exporter import resolve_bundle_path
-from questvector.core.llm import PROVIDERS, build_narrative_prompt, create_narrative_generator
+from questvector.core.exporter import export_resume, resolve_bundle_path
+from questvector.core.guardrails import check_narrative
+from questvector.core.llm import (
+    PROVIDERS,
+    build_narrative_prompt,
+    create_narrative_generator,
+    dossier_context_for_prompt,
+)
 from questvector.core.markdown_parser import parse_dossier
 from questvector.core.models import MissionTemplate
+from questvector.core.resume import build_resume, validate_cutoff_years
 from questvector.core.vault import VaultData, load_vault, update_vault
-from questvector.exceptions import LLMError, QuestVectorError
+from questvector.exceptions import ExportError, LLMError, QuestVectorError
 
 _VAULT_FILENAME = ".questvector.vault"
 
@@ -46,6 +57,11 @@ def _template_search_dirs(workspace_dir: Path) -> list[Path]:
         workspace_dir / "templates" / "community",
         workspace_dir / "templates",
     ]
+
+
+def _today() -> date:
+    """Return today's date. The one place the bridge reads the clock; tests replace it."""
+    return date.today()
 
 
 def _ok(data: Any = None) -> dict[str, Any]:
@@ -200,6 +216,8 @@ class Api:
         fmt: str,
         jd_text: str | None = None,
         template_id: str | None = None,
+        style: str = "report",
+        cutoff_years: int | None = None,
     ) -> dict[str, Any]:
         """Export the dossier bundle to PDF/DOCX (``qv export`` equivalent).
 
@@ -209,18 +227,61 @@ class Api:
                 :func:`~questvector.core.exporter.resolve_bundle_path`.
             fmt: ``"pdf"`` or ``"docx"``.
             jd_text: Optional job description text to include a match
-                summary for.
+                summary for (report style only).
             template_id: Mission template id (required if ``jd_text`` is
                 given).
+            style: ``"report"`` (match report plus the dossier) or ``"resume"`` (a
+                one-column resume; needs ``Contact.md`` and role headings in the
+                ``Title - Employer (Mon YYYY - Mon YYYY)`` form). The desktop resume has no
+                summary yet (ADR-0032).
+            cutoff_years: With the resume style, move roles that ended more than this many
+                years ago to an Earlier Career line.
 
         Returns:
-            A bridge response wrapping the written bundle's path.
+            A bridge response wrapping the written bundle's path (and, for a resume, the
+            notes about what was left out, the PDF page count and, for a DOCX, the
+            file check's result).
         """
         try:
+            if style not in ("report", "resume"):
+                raise ExportError(f"Unknown export style: {style!r}")
+            if cutoff_years is not None:
+                if style != "resume":
+                    raise ExportError("The cutoff needs the resume style")
+                validate_cutoff_years(cutoff_years)
             workspace_dir = Path(dir_path)
             output_dir = workspace_dir / "bundles"
             output_path = resolve_bundle_path(output_dir, bundle_name, fmt)
-            dossier = parse_dossier(workspace_dir)
+            dossier = parse_dossier(workspace_dir, require_roles=style == "resume")
+            if style == "resume":
+                contact = parse_contact(workspace_dir / CONTACT_FILENAME)
+                today = _today()
+                build_resume(
+                    dossier, contact, narrative=None, cutoff_years=cutoff_years, today=today
+                )
+                output_dir.mkdir(parents=True, exist_ok=True)
+                result = export_resume(
+                    dossier,
+                    contact,
+                    output_path,
+                    fmt=fmt,  # type: ignore[arg-type]
+                    cutoff_years=cutoff_years,
+                    today=today,
+                )
+                check = (
+                    check_docx(output_path, contact=contact, cutoff_years=cutoff_years, today=today)
+                    if fmt == "docx"
+                    else None
+                )
+                return _ok(
+                    {
+                        "output_path": str(output_path),
+                        "style": "resume",
+                        "notes": list(result.notes),
+                        "pdf_pages": result.pdf_pages,
+                        "check": check.to_dict() if check else None,
+                    }
+                )
             match_result = None
             if jd_text and template_id:
                 job_description = matcher.parse_job_description(jd_text, source="ui-paste")
@@ -277,7 +338,8 @@ class Api:
                 (never persisted).
 
         Returns:
-            A bridge response wrapping the generated narrative text.
+            A bridge response wrapping the cleaned narrative text (``narrative``), what the
+            output check removed (``removed``) and the sentences to review (``flags``).
         """
         try:
             workspace_dir = Path(dir_path)
@@ -293,10 +355,16 @@ class Api:
                 host=vault_data.llm_host,
                 timeout=vault_data.llm_timeout,
             )
-            dossier_context = "\n".join(c.text for c in dossier.capabilities[:20])
+            dossier_context = dossier_context_for_prompt(dossier)
             prompt = build_narrative_prompt(dossier_context, jd_text)
-            narrative = generator.generate(prompt)
-            return _ok({"narrative": narrative})
+            checked = check_narrative(generator.generate(prompt), dossier_context)
+            return _ok(
+                {
+                    "narrative": checked.text,
+                    "removed": list(checked.removed),
+                    "flags": [flag.to_dict() for flag in checked.flags],
+                }
+            )
         except QuestVectorError as exc:
             return _err(exc)
 

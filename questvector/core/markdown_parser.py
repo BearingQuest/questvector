@@ -36,16 +36,26 @@ subset of Markdown.
 from __future__ import annotations
 
 import re
+from datetime import date
 from pathlib import Path
 
 from questvector.config import STOPWORDS
-from questvector.core.models import Capability, ChronologyEntry, Dossier, ImpactStatement
+from questvector.core.models import Capability, ChronologyEntry, Dossier, ImpactStatement, Role
 from questvector.core.normalize import normalized_tokens
 from questvector.exceptions import ParseError
 
 _HEADING_RE = re.compile(r"^#{2}\s+(?P<heading>.+?)\s*$")
 _BULLET_RE = re.compile(r"^\s*[-*•]\s+(?P<text>.+?)\s*$")
 _UNCATEGORIZED = "Uncategorized"
+# RUF001: the en and em dashes are part of the role heading form (ADR-0032).
+_ROLE_RE = re.compile(
+    r"^(?P<title>.+?) — (?P<employer>.+) "
+    r"\((?P<start>[A-Za-z]+ \d{4})\s*[–-]\s*(?P<end>[A-Za-z]+ \d{4}|Present)\)$",  # noqa: RUF001
+    re.IGNORECASE,
+)
+_MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+ROLE_HEADING_FORM = "Title — Employer (Mon YYYY – Mon YYYY or Present)"  # noqa: RUF001
+ROLE_HEADING_EXAMPLE = "Senior SRE — Acme Corp (Jan 2020 – Mar 2023)"  # noqa: RUF001
 _MIN_TOKEN_LEN = 2
 
 
@@ -71,6 +81,45 @@ def tokenize(text: str) -> frozenset[str]:
         token
         for token in normalized_tokens(text)
         if len(token) >= _MIN_TOKEN_LEN and token not in STOPWORDS
+    )
+
+
+def _parse_month_year(text: str) -> date:
+    """Parse ``"Mon YYYY"`` (three-letter English month) into the first day of that month."""
+    month_name, year = text.split()
+    try:
+        month = _MONTHS.index(month_name.lower()) + 1
+    except ValueError:
+        raise ParseError(f'"{month_name}" is not a three-letter month (Jan to Dec)') from None
+    return date(int(year), month, 1)
+
+
+def parse_role_heading(heading: str) -> Role:
+    """Parse a Chronology heading in the ``Title — Employer (Mon YYYY - Mon YYYY)`` form.
+
+    Args:
+        heading: The heading text, without the leading ``## ``.
+
+    Returns:
+        The parsed :class:`Role`. ``Present`` as the end date gives ``end=None``.
+
+    Raises:
+        ParseError: If the heading doesn't match the form, uses an unknown month, or
+            ends before it starts.
+    """
+    match = _ROLE_RE.match(heading.strip())
+    if match is None:
+        raise ParseError(f'does not match "{ROLE_HEADING_FORM}"')
+    start = _parse_month_year(match.group("start"))
+    end_text = match.group("end")
+    end = None if end_text.lower() == "present" else _parse_month_year(end_text)
+    if end is not None and end < start:
+        raise ParseError("the end date is before the start date")
+    return Role(
+        title=match.group("title").strip(),
+        employer=match.group("employer").strip(),
+        start=start,
+        end=end,
     )
 
 
@@ -181,33 +230,58 @@ def parse_capabilities(path: Path) -> tuple[Capability, ...]:
     return tuple(capabilities)
 
 
-def parse_chronology(path: Path) -> tuple[ChronologyEntry, ...]:
+def parse_chronology(path: Path, *, require_roles: bool = False) -> tuple[ChronologyEntry, ...]:
     """Parse a ``Chronology.md`` file into :class:`ChronologyEntry` entries.
 
     Each level-2 heading is treated as one role/timeframe entry, and its
     bullets are that role's responsibilities/achievements. The heading's words
     (the role title) count as keywords too; Capabilities and Impact headings
-    are labels, not claims, and do not.
+    are labels, not claims, and do not. A heading in the
+    ``Title — Employer (Mon YYYY - Mon YYYY)`` form is also parsed into
+    :attr:`ChronologyEntry.role`, and then only its title and employer count as
+    keywords (month names never do).
 
     Args:
         path: Path to the Chronology Markdown file.
+        require_roles: When true (the resume export), every heading must use the
+            role form, and a heading that doesn't is an error. When false, any
+            heading is accepted and ``role`` is ``None`` for those that don't fit.
 
     Returns:
         A tuple of parsed chronology entries, in document order.
 
     Raises:
         ParseError: If the file is missing, unreadable, or contains no
-            parsable headings/bullets.
+            parsable headings/bullets; or, with ``require_roles``, if any heading
+            doesn't use the role form (the error names every such heading).
     """
     content = _read_text(path)
     sections = _parse_sections(content, source_name=path.name)
     entries: list[ChronologyEntry] = []
+    problems: list[str] = []
     for heading, bullets in sections:
-        keywords: set[str] = set(tokenize(heading))
+        role: Role | None = None
+        try:
+            role = parse_role_heading(heading)
+        except ParseError as exc:
+            problems.append(f'  - "{heading}": {exc.message}')
+        keywords: set[str] = (
+            set(tokenize(role.title)) | set(tokenize(role.employer))
+            if role
+            else set(tokenize(heading))
+        )
         for bullet in bullets:
             keywords |= tokenize(bullet)
         entries.append(
-            ChronologyEntry(heading=heading, bullets=tuple(bullets), keywords=frozenset(keywords))
+            ChronologyEntry(
+                heading=heading, bullets=tuple(bullets), keywords=frozenset(keywords), role=role
+            )
+        )
+    if require_roles and problems:
+        raise ParseError(
+            f"{path.name}: the resume style needs every role heading in the form "
+            f'"{ROLE_HEADING_FORM}", for example "{ROLE_HEADING_EXAMPLE}". '
+            "These headings don't fit:\n" + "\n".join(problems)
         )
     return tuple(entries)
 
@@ -240,7 +314,7 @@ def parse_impact(path: Path) -> tuple[ImpactStatement, ...]:
     return tuple(statements)
 
 
-def parse_dossier(workspace_dir: Path) -> Dossier:
+def parse_dossier(workspace_dir: Path, *, require_roles: bool = False) -> Dossier:
     """Parse whichever canonical dossier files exist in a workspace.
 
     Per the Stage 1 blueprint decision, missing dossier files are tolerated
@@ -250,6 +324,7 @@ def parse_dossier(workspace_dir: Path) -> Dossier:
     Args:
         workspace_dir: Directory expected to contain ``Capabilities.md``,
             ``Chronology.md``, and/or ``Impact.md``.
+        require_roles: Passed to :func:`parse_chronology`; the resume export sets it.
 
     Returns:
         A :class:`Dossier` built from whichever files were present. Missing
@@ -270,7 +345,7 @@ def parse_dossier(workspace_dir: Path) -> Dossier:
 
     chronology_path = workspace_dir / CHRONOLOGY_FILENAME
     if chronology_path.exists():
-        chronology = parse_chronology(chronology_path)
+        chronology = parse_chronology(chronology_path, require_roles=require_roles)
 
     impact_path = workspace_dir / IMPACT_FILENAME
     if impact_path.exists():

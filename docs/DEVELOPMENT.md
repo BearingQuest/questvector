@@ -322,7 +322,10 @@ questvector/
     markdown_parser.py   dossier parsing and tokenizing
     matcher.py           G-Force scoring (the only place scoring logic lives)
     templates.py         mission template loading, validation, --fix
-    exporter.py          PDF and DOCX bundles
+    exporter.py          PDF and DOCX bundles (report and resume styles)
+    resume.py            what the resume style includes, and the cutoff
+    contact.py           Contact.md parsing and validation (never sent to a provider)
+    guardrails.py        strip and flag generated summaries
     vault.py             encrypted local vault
     workspace.py         workspace setup and file locking
     llm.py               AI provider registry and narrative generation

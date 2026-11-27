@@ -1,7 +1,10 @@
 """Unit tests for questvector.core.markdown_parser."""
 
+# ruff: noqa: RUF001, RUF002
+# The en and em dashes are part of the role heading form under test.
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -11,6 +14,7 @@ from questvector.core.markdown_parser import (
     parse_chronology,
     parse_dossier,
     parse_impact,
+    parse_role_heading,
     tokenize,
 )
 from questvector.exceptions import ParseError
@@ -213,3 +217,103 @@ def test_parse_capabilities_and_impact_headings_do_not_count(tmp_path: Path) -> 
 
     assert "leadership" not in capability.keywords
     assert "optimization" not in statement.keywords
+
+
+def test_role_heading_parses_title_employer_and_month_dates() -> None:
+    """R9: "Title — Employer (Mon YYYY – Mon YYYY)" gives title, employer and month dates."""
+    role = parse_role_heading(
+        "Engineering Manager, Platform — Larkspur Freight (Mar 2021 – Feb 2025)"
+    )
+
+    assert role.title == "Engineering Manager, Platform"
+    assert role.employer == "Larkspur Freight"
+    assert role.start == date(2021, 3, 1)
+    assert role.end == date(2025, 2, 1)
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "Senior SRE — Acme (jan 2020 - present)",
+        "Senior SRE — Acme (JAN 2020–PRESENT)",
+        "Senior SRE — Acme (Jan 2020 – Present)",
+    ],
+)
+def test_role_heading_accepts_present_hyphen_and_any_month_case(heading: str) -> None:
+    """R9: "Present" ends a role; a hyphen or en dash separates dates; month case is free."""
+    role = parse_role_heading(heading)
+
+    assert role.end is None
+    assert role.start == date(2020, 1, 1)
+
+
+@pytest.mark.parametrize(
+    ("heading", "reason"),
+    [
+        ("Acme Corp — Senior SRE (2020-2023)", "does not match"),
+        ("Senior SRE at Acme (Jan 2020 – Mar 2023)", "does not match"),
+        ("Senior SRE — Acme", "does not match"),
+        ("Senior SRE — Acme (Sept 2020 – Mar 2023)", '"Sept" is not a three-letter month'),
+        ("Senior SRE — Acme (Jan 2020 – Foo 2023)", '"Foo" is not a three-letter month'),
+        ("Senior SRE — Acme (Mar 2023 – Jan 2020)", "end date is before the start date"),
+    ],
+)
+def test_role_heading_errors_say_what_is_wrong(heading: str, reason: str) -> None:
+    """R9: a heading that doesn't fit the form raises a ParseError saying why."""
+    with pytest.raises(ParseError, match=reason):
+        parse_role_heading(heading)
+
+
+def test_resume_parse_names_every_heading_that_does_not_fit(tmp_path: Path) -> None:
+    """R9: with require_roles, one error names the file, each bad heading and the form."""
+    (tmp_path / "Chronology.md").write_text(
+        "## Senior SRE — Acme (Jan 2020 – Mar 2023)\n- ok\n"
+        "## Acme Corp — SRE (2016-2019)\n- old form\n"
+        "## Intern — Foo (Sept 2010 – Dec 2010)\n- bad month\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ParseError) as exc_info:
+        parse_dossier(tmp_path, require_roles=True)
+
+    message = str(exc_info.value)
+    assert "Chronology.md" in message
+    assert '"Acme Corp — SRE (2016-2019)"' in message
+    assert '"Intern — Foo (Sept 2010 – Dec 2010)"' in message
+    assert '"Senior SRE — Acme (Jan 2020 – Mar 2023)"' not in message.split("don't fit:")[1]
+    assert "Title — Employer (Mon YYYY – Mon YYYY or Present)" in message
+
+
+def test_report_style_still_accepts_any_heading(tmp_path: Path) -> None:
+    """R9: without require_roles every heading parses, with role None where it doesn't fit."""
+    (tmp_path / "Chronology.md").write_text(
+        "## Acme Corp — Senior SRE (2020-2023)\n- a\n"
+        "## Senior SRE — Acme (Jan 2020 – Present)\n- b\n",
+        encoding="utf-8",
+    )
+
+    entries = parse_dossier(tmp_path).chronology
+
+    assert [e.role is None for e in entries] == [True, False]
+
+
+def test_month_names_in_a_role_heading_are_not_keywords(tmp_path: Path) -> None:
+    """R9: a parsed role contributes its title and employer words, never "mar" or "present"."""
+    (tmp_path / "Chronology.md").write_text(
+        "## Senior SRE — Acme (Mar 2020 – Present)\n- Ran Kubernetes\n", encoding="utf-8"
+    )
+
+    (entry,) = parse_dossier(tmp_path).chronology
+
+    assert {"senior", "sre", "acme", "kubernetes"} <= entry.keywords
+    assert not {"mar", "present"} & entry.keywords
+
+
+def test_the_launch_stub_uses_the_role_heading_form(tmp_path: Path) -> None:
+    """R9: a new workspace's Chronology stub already parses in the role form."""
+    from questvector.core import workspace
+
+    workspace.init_workspace(tmp_path / "ws")
+
+    (entry,) = parse_dossier(tmp_path / "ws", require_roles=True).chronology
+    assert entry.role is not None

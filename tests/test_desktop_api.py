@@ -4,6 +4,8 @@ These exercise the JS/Python bridge logic directly -- no pywebview runtime,
 window, or display server is created or required.
 """
 
+# ruff: noqa: RUF001
+# The en dash is part of the resume date range under test.
 from __future__ import annotations
 
 import json
@@ -164,6 +166,31 @@ def test_generate_narrative_success_with_mocked_llm(tmp_path: Path) -> None:
     assert response["data"]["narrative"] == "Generated summary."
 
 
+def test_generate_narrative_strips_and_flags_in_the_result(tmp_path: Path) -> None:
+    """R14: the desktop result holds the cleaned text, what was removed and the flags."""
+    workspace_dir = tmp_path / "ws"
+    api = Api()
+    api.launch_workspace(str(workspace_dir))
+    (workspace_dir / "Capabilities.md").write_text("## Cloud\n- Ran AWS\n", encoding="utf-8")
+    vault.save_vault(
+        workspace_dir / ".questvector.vault",
+        "pass",
+        vault.VaultData(llm_provider="anthropic", llm_api_keys={"anthropic": "sk-fake"}),
+    )
+
+    with patch("questvector.core.llm.AnthropicNarrativeGenerator") as mock_generator_cls:
+        mock_generator_cls.return_value.generate.return_value = (
+            "I ran AWS and Datadog.\n\n*Note: no SOC 2.*"
+        )
+        response = api.generate_narrative(str(workspace_dir), "some jd text", "pass")
+
+    assert response["ok"] is True
+    data = response["data"]
+    assert data["narrative"] == "I ran AWS and Datadog."
+    assert data["removed"] == ["*Note: no SOC 2.*"]
+    assert [(f["kind"], f["terms"]) for f in data["flags"]] == [("unsupported_term", ["Datadog"])]
+
+
 def test_generate_narrative_ollama_timeout_returns_error_instead_of_raising(tmp_path: Path) -> None:
     # A slow local model used to raise a raw TimeoutError through the bridge.
     workspace_dir = tmp_path / "ws"
@@ -258,3 +285,93 @@ def test_export_bundle_from_the_desktop_shows_counts_but_not_warnings(tmp_path: 
     assert "No hands-on Kubernetes" in text  # the dossier body is exported as written
     assert "Check these lines" not in text
     assert "negat" not in text.lower()
+
+
+def resume_api(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Api, Path]:
+    import shutil
+    from datetime import date
+
+    from questvector.desktop import app
+
+    workspace_dir = tmp_path / "ws"
+    shutil.copytree(Path(__file__).parent / "fixtures" / "resume", workspace_dir)
+    monkeypatch.setattr(app, "_today", lambda: date(2026, 11, 27))
+    return Api(), workspace_dir
+
+
+def test_export_bundle_resume_style_writes_a_resume_and_reports_notes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R9: the bridge's resume style writes the resume, with the cutoff and what it moved."""
+    api, workspace_dir = resume_api(tmp_path, monkeypatch)
+
+    response = api.export_bundle(str(workspace_dir), "cv", "pdf", None, None, "resume", 20)
+
+    assert response["ok"] is True
+    data = response["data"]
+    assert data["style"] == "resume" and data["pdf_pages"] == 1
+    assert data["notes"][0].startswith("Moved 1 role(s)")
+    assert Path(data["output_path"]).read_bytes()[:5] == b"%PDF-"
+
+
+def test_export_bundle_resume_style_errors_come_back_as_envelopes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R9: a missing Contact.md, a bad cutoff, a cutoff without the resume style or an unknown
+    style each return an error envelope and write nothing."""
+    api, workspace_dir = resume_api(tmp_path, monkeypatch)
+    directory = str(workspace_dir)
+
+    assert (
+        "from 1 to 60"
+        in api.export_bundle(directory, "cv", "docx", None, None, "resume", 0)["error"]
+    )
+    assert (
+        "needs the resume style"
+        in api.export_bundle(directory, "cv", "docx", None, None, "report", 20)["error"]
+    )
+    assert (
+        "Unknown export style"
+        in api.export_bundle(directory, "cv", "docx", None, None, "cv")["error"]
+    )
+    (workspace_dir / "Contact.md").unlink()
+    missing = api.export_bundle(directory, "cv", "docx", None, None, "resume")
+    assert missing["ok"] is False and str(workspace_dir / "Contact.md") in missing["error"]
+    assert not (workspace_dir / "bundles").exists()
+
+
+def test_export_bundle_defaults_to_the_report_style(tmp_path: Path) -> None:
+    """R9: without a style the bridge exports the report, as before."""
+    workspace_dir = tmp_path / "ws"
+    api = Api()
+    api.launch_workspace(str(workspace_dir))
+
+    response = api.export_bundle(str(workspace_dir), "bundle", "docx")
+
+    assert response["ok"] is True
+    assert response["data"] == {"output_path": str(workspace_dir / "bundles" / "bundle.docx")}
+
+
+def test_export_bundle_resume_docx_includes_the_file_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R10: a resume DOCX export from the window returns the check, failing or not."""
+    api, workspace_dir = resume_api(tmp_path, monkeypatch)
+
+    clean = api.export_bundle(str(workspace_dir), "cv", "docx", None, None, "resume", 20)
+
+    assert clean["ok"] is True
+    assert clean["data"]["check"]["passed"] is True
+    assert clean["data"]["check"]["lines"][-1] == "Check PASS: 0 problem(s), 0 warning(s)"
+
+    (workspace_dir / "Chronology.md").write_text(
+        "## Lead — Acme (Jan 2020 – Present)\n- Mentored her to promotion\n", encoding="utf-8"
+    )
+    failing = api.export_bundle(str(workspace_dir), "cv2", "docx", None, None, "resume")
+
+    assert failing["ok"] is True  # the file was written
+    assert failing["data"]["check"]["passed"] is False
+    assert Path(failing["data"]["output_path"]).exists()
+
+    pdf = api.export_bundle(str(workspace_dir), "cv3", "pdf", None, None, "resume")
+    assert pdf["data"]["check"] is None

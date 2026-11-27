@@ -189,19 +189,49 @@ Acceptance criteria use EARS-style phrasing.
   counts beside each category and the overall count. It SHALL NOT include
   negation warnings (ADR-0030).
 
-**R9 — ATS-safe resume output.** **Planned** (backlog item 5).
+**R9 — ATS-safe resume output.** **Built** (backlog item 5; ADR-0032).
+- WHERE the user runs `qv export --style resume` (or picks the Resume style in
+  the desktop window), THEN the system SHALL write a resume instead of the match
+  report. The report remains the default style.
 - Exported resumes SHALL use a single column, with no tables, text boxes,
   columns, tab stops, or content in page headers and footers.
 - Each role SHALL have a title line and a "Company | Mon YYYY – Mon YYYY" line,
-  with the employer repeated on every role.
-- Email and profile URLs SHALL be real hyperlinks.
-- WHERE the user enables it, roles that ended more than 20 years ago SHALL move
-  to a dateless "Earlier Career" line.
+  with the employer repeated on every role. The resume style SHALL require every
+  Chronology heading in the form `Title — Employer (Mon YYYY – Mon YYYY)` (or
+  `Present`) and SHALL name each heading that doesn't fit.
+- The resume SHALL show the contact block from an optional `Contact.md`
+  (name and email required), which SHALL stay on the machine and SHALL NOT be
+  sent to an AI provider. Email and profile URLs SHALL be real hyperlinks.
+- The resume SHALL show the summary (when one was generated, CLI only for now),
+  Capability domain names only, up to 6 bullets per role, and the first Impact
+  bullet of up to 5 groups. It SHALL NOT show the match score, a table or gaps.
+- WHERE the user passes `--cutoff-years [N]` (20 when no value is given; 1 to
+  60), roles that ended more than N years before today, measured on the end
+  month, SHALL move to one dateless "Earlier Career" line, and no year before the
+  cutoff SHALL appear in the file: a role whose own heading would print one is
+  refused by name, and other lines that mention one are left out and reported.
+  The cutoff is off by default.
+- The desktop resume export has no summary yet (backlog item 15).
 
-**R10 — Automated output check.** **Planned** (backlog item 5).
-- The system SHALL check an exported DOCX by extracting its text through at
-  least two independent parsers, and SHALL report missing contact fields,
-  role headers separated from their dates, tables, and page count.
+**R10 — Automated output check.** **Built** (backlog item 5; ADR-0032).
+- The system SHALL check an exported DOCX by extracting its text two
+  independent ways (python-docx paragraphs and the raw `word/document.xml`),
+  with no system tools and no new dependency.
+- The check SHALL fail, with each finding on its own line and a non-zero exit,
+  on: any table, text box, multi-column section, tab character, or page header
+  or footer content; a contact field or email or profile link missing; a role
+  header that isn't directly after its title line, a date range not attached to
+  a company, or a role header count that differs between the two extractions;
+  a year before the cutoff when the cutoff was used; and third-person
+  pronouns (he, his, him, himself, she, her, hers, herself). It SHALL warn,
+  without failing, on a short list of filler phrases.
+- `qv check-export <file.docx>` SHALL run the check, and `qv export --style
+  resume --format docx` and the desktop resume export SHALL run it on the file
+  they write. It SHALL refuse a DOCX part whose declared size is over 10 MB
+  before reading it.
+- Page count: a PDF resume's page count (from ReportLab) is shown on export.
+  The DOCX check reports word and paragraph counts only, because a DOCX isn't
+  rendered here and has no reliable page count. Left as is: a DOCX page count.
 
 ### 5.5 AI narrative
 
@@ -223,12 +253,20 @@ Acceptance criteria use EARS-style phrasing.
   show the user exactly what dossier and job-description text will be sent
   and to which provider, and SHALL send nothing unless the user confirms.
 
-**R14 — Accuracy guardrails.** **Planned** (backlog item 5).
-- The narrative prompt SHALL instruct the model to use only facts in the
-  supplied dossier text and to add no titles, metrics, dates, employers, or
-  technologies.
-- The system SHALL flag narrative sentences containing numbers or proper
-  nouns that don't appear in the dossier, for the user to review.
+**R14 — Accuracy guardrails.** **Built.**
+- The narrative prompt SHALL instruct the model to output one first-person
+  summary paragraph only, to use only facts in the supplied dossier text, to
+  add no titles, metrics, numbers, dates, durations, employers, or
+  technologies, and to make no depth claim the text doesn't make.
+- The system SHALL check every generated summary before it is shown or
+  exported. It SHALL strip anything after the summary paragraph (a second
+  paragraph, a rule, an italic or bracketed note) and a heading or preamble
+  before it, and tell the user what was removed.
+- The system SHALL flag, without blocking, narrative sentences containing
+  numbers, capitalized names or technology terms, or depth words that don't
+  appear in the dossier text that was sent, and third-person pronouns. Flags
+  appear in `qv export` output, `qv export --json` and the desktop result, and
+  SHALL NOT appear in the exported file (ADR-0032).
 
 **R15 — Live provider testing at no cost.** **Partly built.**
 - The test suite SHALL include opt-in live tests, skipped by default, for at

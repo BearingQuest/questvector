@@ -100,9 +100,15 @@
           <option value="pdf">PDF</option>
           <option value="docx">DOCX</option>
         </select>
+        <select id="export-style">
+          <option value="report">Match report + dossier</option>
+          <option value="resume">Resume (one column, for screening software)</option>
+        </select>
         <button id="btn-export">Export</button>
       </div>
-      <p class="hud-hint">Uses the last Sync-AST scan's job description/template as the match summary, if one has been run.</p>
+      <label class="hud-hint"><input type="checkbox" id="export-cutoff" /> Resume only: move roles that ended more than 20 years ago to an Earlier Career line</label>
+      <p class="hud-hint">Report style uses the last Sync-AST scan's job description/template as the match summary, if one has been run. The resume needs Contact.md and role headings like "Title &mdash; Employer (Jan 2020 &ndash; Mar 2023)"; it has no summary yet.</p>
+      <ul class="hud-list warning" id="export-notes"></ul>
       <pre class="hud-output" id="export-output"></pre>
     </section>
 
@@ -122,6 +128,10 @@
         <button id="btn-generate-narrative">Generate Narrative from Last Scan</button>
       </div>
       <pre class="hud-output" id="vault-output"></pre>
+      <p class="hud-hint" id="narrative-removed-heading"></p>
+      <ul class="hud-list warning" id="narrative-removed"></ul>
+      <p class="hud-hint" id="narrative-flags-heading"></p>
+      <ul class="hud-list warning" id="narrative-flags"></ul>
     </section>
   </main>
 
