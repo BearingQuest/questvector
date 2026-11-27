@@ -17,6 +17,11 @@ Commands
         LLM-generated narrative) into a PDF or DOCX bundle. A generated
         narrative is checked first: extras are stripped and doubtful
         sentences are listed (never blocked).
+    qv check-export FILE.docx [--dir PATH] [--cutoff-years [N]] [--json]
+        Check a resume-style DOCX: tables, text boxes, tabs, headers and footers,
+        contact fields and links, role header lines, years before the cutoff,
+        third-person pronouns (exit 1 on a failure) and cliche phrases (a
+        warning). Text is read two independent ways.
     qv template validate PATH [--fix] [--json]
         Lint a mission template YAML file; with --fix, rescale weights to
         sum to 1.00 and persist the fix.
@@ -48,6 +53,7 @@ from questvector import __version__
 from questvector.config import CONTACT_FILENAME
 from questvector.core import matcher, templates, workspace
 from questvector.core.contact import parse_contact
+from questvector.core.export_check import CheckReport, check_docx
 from questvector.core.exporter import export_bundle, export_resume, resolve_bundle_path
 from questvector.core.guardrails import NarrativeCheck, check_narrative
 from questvector.core.llm import (
@@ -284,6 +290,7 @@ def _cmd_export(args: argparse.Namespace) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     notes: tuple[str, ...] = ()
     pdf_pages: int | None = None
+    check: CheckReport | None = None
     if contact is not None:
         result = export_resume(
             dossier,
@@ -295,6 +302,10 @@ def _cmd_export(args: argparse.Namespace) -> int:
             today=today,
         )
         notes, pdf_pages = result.notes, result.pdf_pages
+        if args.format == "docx":
+            check = check_docx(
+                output_path, contact=contact, cutoff_years=args.cutoff_years, today=today
+            )
     else:
         export_bundle(
             dossier, output_path, fmt=args.format, match_result=match_result, narrative=narrative
@@ -309,11 +320,12 @@ def _cmd_export(args: argparse.Namespace) -> int:
                     "narrative": narrative_check.to_dict() if narrative_check else None,
                     "notes": list(notes),
                     "pdf_pages": pdf_pages,
+                    "check": check.to_dict() if check else None,
                 },
                 indent=2,
             )
         )
-        return 0
+        return 0 if check is None or check.passed else 1
     print(f"[QV] Exported bundle: {output_path}")
     if pdf_pages is not None:
         print(f"[QV] PDF pages: {pdf_pages}")
@@ -321,7 +333,38 @@ def _cmd_export(args: argparse.Namespace) -> int:
         print(f"[QV] {line}")
     for note in notes:
         print(f"[QV] Note: {note}")
-    return 0
+    if check is not None:
+        for line in check.lines():
+            print(f"[QV] {line}")
+        if not check.passed:
+            print("[QV] The file was written, but the check failed.", file=sys.stderr)
+    return 0 if check is None or check.passed else 1
+
+
+def _cmd_check_export(args: argparse.Namespace) -> int:
+    """Handle ``qv check-export``.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        ``0`` if the check passes (warnings allowed), ``1`` if any finding fails.
+    """
+    path = Path(args.file).expanduser()
+    if path.suffix.lower() != ".docx":
+        raise QuestVectorError(
+            "check-export reads .docx files only (a PDF resume's page count is printed "
+            "when it is exported)"
+        )
+    workspace_dir = _resolve_workspace_dir(args.dir)
+    contact = parse_contact(workspace_dir / CONTACT_FILENAME)
+    report = check_docx(path, contact=contact, cutoff_years=args.cutoff_years, today=_today())
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        for line in report.lines():
+            print(line)
+    return 0 if report.passed else 1
 
 
 def _cmd_template_validate(args: argparse.Namespace) -> int:
@@ -464,6 +507,26 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Generate an LLM narrative summary (requires vault + --target/--template)",
     )
     export.set_defaults(func=_cmd_export)
+
+    check_export = subparsers.add_parser(
+        "check-export", help="Check an exported resume DOCX for what screening software dislikes"
+    )
+    check_export.add_argument("file", help="Path to the .docx resume")
+    check_export.add_argument(
+        "--dir", help="Workspace directory holding Contact.md (default: current directory)"
+    )
+    check_export.add_argument(
+        "--cutoff-years",
+        nargs="?",
+        const=DEFAULT_CUTOFF_YEARS,
+        default=None,
+        type=_cutoff_years_arg,
+        metavar="N",
+        help="The cutoff the resume was exported with (20 with no value): no year before it "
+        "may appear",
+    )
+    check_export.add_argument("--json", action="store_true", help="Emit JSON output")
+    check_export.set_defaults(func=_cmd_check_export)
 
     template = subparsers.add_parser("template", help="Mission template operations")
     template_subparsers = template.add_subparsers(dest="template_command", required=True)

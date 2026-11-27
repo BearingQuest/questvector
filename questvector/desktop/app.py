@@ -22,6 +22,7 @@ from typing import Any
 from questvector.config import CONTACT_FILENAME
 from questvector.core import matcher, templates, workspace
 from questvector.core.contact import parse_contact
+from questvector.core.export_check import check_docx
 from questvector.core.exporter import export_bundle as _export_bundle
 from questvector.core.exporter import export_resume, resolve_bundle_path
 from questvector.core.guardrails import check_narrative
@@ -238,7 +239,8 @@ class Api:
 
         Returns:
             A bridge response wrapping the written bundle's path (and, for a resume, the
-            notes about what was left out and the PDF page count).
+            notes about what was left out, the PDF page count and, for a DOCX, the
+            file check's result).
         """
         try:
             if style not in ("report", "resume"):
@@ -266,12 +268,18 @@ class Api:
                     cutoff_years=cutoff_years,
                     today=today,
                 )
+                check = (
+                    check_docx(output_path, contact=contact, cutoff_years=cutoff_years, today=today)
+                    if fmt == "docx"
+                    else None
+                )
                 return _ok(
                     {
                         "output_path": str(output_path),
                         "style": "resume",
                         "notes": list(result.notes),
                         "pdf_pages": result.pdf_pages,
+                        "check": check.to_dict() if check else None,
                     }
                 )
             match_result = None

@@ -760,3 +760,132 @@ def test_contact_details_never_reach_the_narrative_prompt(
     text = docx_text(resume_workspace / "bundles" / "cv.docx")
     assert all(v in text for v in values)
     assert "I run platform teams on AWS." in text
+
+
+def exported_docx(workspace_dir: Path, *extra: str) -> Path:
+    assert cli.main(resume_args(workspace_dir, *extra)) == 0
+    return workspace_dir / "bundles" / "cv.docx"
+
+
+def test_check_export_passes_a_clean_resume_and_prints_the_verdict(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R10: qv check-export exits 0 on a clean resume and prints the length and the verdict."""
+    path = exported_docx(resume_workspace)
+    capsys.readouterr()
+
+    assert cli.main(["check-export", str(path), "--dir", str(resume_workspace)]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].startswith("Length: ")
+    assert lines[-1] == "Check PASS: 0 problem(s), 0 warning(s)"
+
+
+def test_check_export_exits_1_with_each_finding_on_its_own_line(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R10: a failing check exits 1 and prints one FAIL line per finding, naming the line."""
+    path = exported_docx(resume_workspace)
+    capsys.readouterr()
+
+    code = cli.main(["check-export", str(path), "--dir", str(resume_workspace), "--cutoff-years"])
+
+    assert code == 1
+    out = capsys.readouterr().out.splitlines()
+    year_lines = [line for line in out if line.startswith("FAIL year:")]
+    assert len(year_lines) >= 2
+    assert any("Pinecrest Mills | Sep 2002" in line for line in year_lines)
+    assert out[-1].startswith("Check FAIL: ")
+
+
+def test_check_export_json_has_the_report(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R10: qv check-export --json prints the report as JSON."""
+    path = exported_docx(resume_workspace)
+    capsys.readouterr()
+
+    assert cli.main(["check-export", str(path), "--dir", str(resume_workspace), "--json"]) == 0
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["passed"] is True and data["roles"] == 4 and data["findings"] == []
+
+
+def test_check_export_without_contact_md_gives_one_error_naming_the_path(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R10: a missing Contact.md is one error naming the --dir path, not a list of failures."""
+    path = exported_docx(resume_workspace)
+    (resume_workspace / "Contact.md").unlink()
+    capsys.readouterr()
+
+    assert cli.main(["check-export", str(path), "--dir", str(resume_workspace)]) == 1
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("\n") == 1
+    assert str(resume_workspace / "Contact.md") in captured.err
+    assert "FAIL" not in captured.err
+
+
+@pytest.mark.parametrize("value", ["0", "61", "-5", "abc"])
+def test_check_export_cutoff_years_values_outside_1_to_60_give_a_clear_error(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str], value: str
+) -> None:
+    """R10: 0, 61, -5 and abc each stop check-export with an error naming the option and range."""
+    path = exported_docx(resume_workspace)
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["check-export", str(path), "--cutoff-years", value])
+
+    assert exc_info.value.code == 2
+    assert "--cutoff-years: must be a whole number of years from 1 to 60" in capsys.readouterr().err
+
+
+def test_check_export_reads_docx_files_only(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R10: a PDF is refused with a plain message saying where its page count comes from."""
+    assert cli.main(resume_args(resume_workspace, fmt="pdf")) == 0
+
+    code = cli.main(["check-export", str(resume_workspace / "bundles" / "cv.pdf")])
+
+    assert code == 1
+    assert "reads .docx files only" in capsys.readouterr().err
+
+
+def test_resume_docx_export_runs_the_check_and_prints_it(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R10: a resume-style DOCX export checks the file it wrote and prints the verdict."""
+    assert cli.main(resume_args(resume_workspace, "--cutoff-years")) == 0
+
+    out = capsys.readouterr().out
+    assert "[QV] Check PASS: 0 problem(s), 0 warning(s)" in out
+
+
+def test_resume_docx_export_exits_1_when_the_check_fails_but_keeps_the_file(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R10: a failing check after export exits 1; the file stays and the failure is named."""
+    (resume_workspace / "Chronology.md").write_text(
+        "## Lead — Acme (Jan 2020 – Present)\n- Mentored her to promotion\n", encoding="utf-8"
+    )
+
+    assert cli.main(resume_args(resume_workspace)) == 1
+
+    captured = capsys.readouterr()
+    assert "[QV] FAIL pronoun: third-person her" in captured.out
+    assert "The file was written, but the check failed." in captured.err
+    assert (resume_workspace / "bundles" / "cv.docx").exists()
+
+
+def test_resume_pdf_export_is_not_run_through_the_docx_check(
+    resume_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R10: the check reads DOCX; a PDF export prints its page count and no check verdict."""
+    assert cli.main(resume_args(resume_workspace, fmt="pdf")) == 0
+
+    out = capsys.readouterr().out
+    assert "PDF pages: 1" in out
+    assert "Check " not in out

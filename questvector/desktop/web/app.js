@@ -221,7 +221,12 @@ document.getElementById("btn-export").addEventListener("click", async () => {
   const response = await api.export_bundle(
     dir, name, fmt, lastScan.jdText, lastScan.templateId, style, cutoffYears);
   renderJson("export-output", response);
-  setList(document.getElementById("export-notes"), response.ok && response.data.notes ? response.data.notes : []);
+  const check = response.ok ? response.data.check : null;
+  const notes = response.ok && response.data.notes ? response.data.notes : [];
+  setList(document.getElementById("export-notes"), check ? [...notes, ...check.lines] : notes);
+  if (response.ok && check && !check.passed) {
+    return setStatus("BUNDLE EXPORTED, FILE CHECK FAILED", "warning");
+  }
   setStatus(response.ok ? "BUNDLE EXPORTED" : "EXPORT FAILED", response.ok ? "success" : "critical");
 });
 

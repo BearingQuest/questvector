@@ -4,6 +4,7 @@ These exercise the JS/Python bridge logic directly -- no pywebview runtime,
 window, or display server is created or required.
 """
 
+# ruff: noqa: RUF001
 # The en dash is part of the resume date range under test.
 from __future__ import annotations
 
@@ -349,3 +350,28 @@ def test_export_bundle_defaults_to_the_report_style(tmp_path: Path) -> None:
 
     assert response["ok"] is True
     assert response["data"] == {"output_path": str(workspace_dir / "bundles" / "bundle.docx")}
+
+
+def test_export_bundle_resume_docx_includes_the_file_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R10: a resume DOCX export from the window returns the check, failing or not."""
+    api, workspace_dir = resume_api(tmp_path, monkeypatch)
+
+    clean = api.export_bundle(str(workspace_dir), "cv", "docx", None, None, "resume", 20)
+
+    assert clean["ok"] is True
+    assert clean["data"]["check"]["passed"] is True
+    assert clean["data"]["check"]["lines"][-1] == "Check PASS: 0 problem(s), 0 warning(s)"
+
+    (workspace_dir / "Chronology.md").write_text(
+        "## Lead — Acme (Jan 2020 – Present)\n- Mentored her to promotion\n", encoding="utf-8"
+    )
+    failing = api.export_bundle(str(workspace_dir), "cv2", "docx", None, None, "resume")
+
+    assert failing["ok"] is True  # the file was written
+    assert failing["data"]["check"]["passed"] is False
+    assert Path(failing["data"]["output_path"]).exists()
+
+    pdf = api.export_bundle(str(workspace_dir), "cv3", "pdf", None, None, "resume")
+    assert pdf["data"]["check"] is None

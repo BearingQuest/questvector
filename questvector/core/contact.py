@@ -112,7 +112,7 @@ def parse_contact(path: Path) -> Contact:
         content = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         raise ParseError(
-            f"{path.name} not found at {path}: the resume style needs it (see the README)"
+            f"{path.name} not found at {path} (see the README for the Contact.md format)"
         ) from None
     except (UnicodeDecodeError, OSError) as exc:
         raise ParseError(f"Could not read {path.name} at {path} as UTF-8 text: {exc}") from exc

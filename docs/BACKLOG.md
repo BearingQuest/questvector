@@ -158,6 +158,19 @@ items 6 and 15 (Playwright). `tests.yml` runs pytest (Python 3.12 and 3.13,
   Python bridge only, not the web UI).
 
 ## 5. Bring resume lessons from the Applying for Jobs project into export
+✅ **Done 27 Nov 2026** ([ADR-0032](decisions/0032-summary-guardrails-resume-export-file-check.md);
+PRD R9, R10 and R14), in one pull request of three commits: the summary
+guardrails (strip a trailing note, flag unsupported numbers, names and depth
+words and third-person pronouns, never block), a resume-style export
+(`qv export --style resume`, `Contact.md`, role headings with months, opt-in
+`--cutoff-years`), and `qv check-export` (two independent text extractions,
+also run after a resume DOCX export). Not built here: three-parser extraction
+and "overused words" (the check reads two ways and lists 15 filler phrases), a
+DOCX page count (a DOCX isn't rendered; the PDF page count is printed), and the
+summary in the desktop resume (item 15). Cover-letter output and job-fit reads
+stay open as item 21.
+The list below is the original brief.
+
 The job-search project has hard-won rules for ATS-safe resumes that
 QuestVector's PDF/DOCX export (`questvector/core/exporter.py`) likely doesn't
 follow yet. Evaluate adopting:
@@ -479,6 +492,13 @@ tab) and backlog item 6.
 
 README: when this work makes the GUI usable, add the screenshots described in item 20.
 
+**Carried over from item 5 (27 Nov 2026):** put the AI summary into the desktop
+resume export. Today `Api.export_bundle` takes no narrative and the window's
+"Generate Narrative" only shows the result, so a desktop resume has no summary
+(the CLI's `--narrative` does). When it is added, the bridge should re-run the
+output check ([ADR-0032](decisions/0032-summary-guardrails-resume-export-file-check.md))
+on whatever text the page passes in, against the dossier text it would send.
+
 ## 16. Browser-only app
 Decided 28 Oct 2026 ([ADR-0016](decisions/0016-browser-app-static-pages.md)):
 a browser app for less-technical users who can't install software. It's
@@ -676,3 +696,14 @@ What:
 - When the browser app goes live, the README's Mermaid diagram also shows the
   GitHub Pages site and that data stays in the browser.
 - The owner checks the README in GitHub's light and dark themes before merging.
+
+## 21. Cover letters and job-fit reads
+Split from item 5 (27 Nov 2026, owner decision): item 5 built the summary
+guardrails, the resume style and the file check; the rest of its "gaps beyond
+ATS" stays open.
+- **Cover-letter output.** Same guardrails as the summary ([ADR-0032](decisions/0032-summary-guardrails-resume-export-file-check.md)):
+  only facts in the dossier text that was sent, a check before anything is
+  shown or exported, flags that never block. Decide what goes to a provider
+  (PRD R13).
+- **Job-fit reads** beyond the G-Force score (PRD section 9, out of scope until
+  decided).

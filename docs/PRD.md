@@ -213,10 +213,25 @@ Acceptance criteria use EARS-style phrasing.
   The cutoff is off by default.
 - The desktop resume export has no summary yet (backlog item 15).
 
-**R10 — Automated output check.** **Planned** (backlog item 5).
-- The system SHALL check an exported DOCX by extracting its text through at
-  least two independent parsers, and SHALL report missing contact fields,
-  role headers separated from their dates, tables, and page count.
+**R10 — Automated output check.** **Built** (backlog item 5; ADR-0032).
+- The system SHALL check an exported DOCX by extracting its text two
+  independent ways (python-docx paragraphs and the raw `word/document.xml`),
+  with no system tools and no new dependency.
+- The check SHALL fail, with each finding on its own line and a non-zero exit,
+  on: any table, text box, multi-column section, tab character, or page header
+  or footer content; a contact field or email or profile link missing; a role
+  header that isn't directly after its title line, a date range not attached to
+  a company, or a role header count that differs between the two extractions;
+  a year before the cutoff when the cutoff was used; and third-person
+  pronouns (he, his, him, himself, she, her, hers, herself). It SHALL warn,
+  without failing, on a short list of filler phrases.
+- `qv check-export <file.docx>` SHALL run the check, and `qv export --style
+  resume --format docx` and the desktop resume export SHALL run it on the file
+  they write. It SHALL refuse a DOCX part whose declared size is over 10 MB
+  before reading it.
+- Page count: a PDF resume's page count (from ReportLab) is shown on export.
+  The DOCX check reports word and paragraph counts only, because a DOCX isn't
+  rendered here and has no reliable page count. Left as is: a DOCX page count.
 
 ### 5.5 AI narrative
 

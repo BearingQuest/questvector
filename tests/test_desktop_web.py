@@ -125,3 +125,11 @@ def test_export_panel_has_a_style_choice_a_cutoff_box_and_a_notes_list() -> None
         assert f'"{element_id}"' in source
     assert 'value="resume"' in html
     assert "api.export_bundle(" in source and "style, cutoffYears" in source
+
+
+def test_export_shows_the_file_check_lines_and_failure_as_text() -> None:
+    """R10: the window lists the file check's lines and says when the check failed."""
+    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "check.lines" in source
+    assert "FILE CHECK FAILED" in source
