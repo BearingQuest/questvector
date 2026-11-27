@@ -11,9 +11,11 @@ Commands
         Parse a job description, run the Micro-Diff Matching Engine against
         the workspace dossier, and print the G-Force match score.
     qv export --bundle NAME --format {pdf,docx} [--dir PATH]
-               [--target JD_FILE --template TEMPLATE_ID] [--narrative]
+               [--target JD_FILE --template TEMPLATE_ID] [--narrative] [--json]
         Compile the dossier (optionally with a match summary and an
-        LLM-generated narrative) into a PDF or DOCX bundle.
+        LLM-generated narrative) into a PDF or DOCX bundle. A generated
+        narrative is checked first: extras are stripped and doubtful
+        sentences are listed (never blocked).
     qv template validate PATH [--fix] [--json]
         Lint a mission template YAML file; with --fix, rescale weights to
         sum to 1.00 and persist the fix.
@@ -43,7 +45,13 @@ from pathlib import Path
 from questvector import __version__
 from questvector.core import matcher, templates, workspace
 from questvector.core.exporter import export_bundle, resolve_bundle_path
-from questvector.core.llm import PROVIDERS, build_narrative_prompt, create_narrative_generator
+from questvector.core.guardrails import NarrativeCheck, check_narrative
+from questvector.core.llm import (
+    PROVIDERS,
+    build_narrative_prompt,
+    create_narrative_generator,
+    dossier_context_for_prompt,
+)
 from questvector.core.markdown_parser import parse_dossier
 from questvector.core.models import MissionTemplate
 from questvector.core.vault import VaultData, load_vault, update_vault
@@ -212,6 +220,7 @@ def _cmd_export(args: argparse.Namespace) -> int:
         match_result = matcher.run_match(dossier, job_description, template)
 
     narrative = None
+    narrative_check: NarrativeCheck | None = None
     if args.narrative:
         if match_result is None:
             raise QuestVectorError("--narrative requires both --target and --template to be set")
@@ -229,17 +238,32 @@ def _cmd_export(args: argparse.Namespace) -> int:
             host=vault_data.llm_host,
             timeout=vault_data.llm_timeout,
         )
-        dossier_context = "\n".join(c.text for c in dossier.capabilities[:20])
+        dossier_context = dossier_context_for_prompt(dossier)
         prompt = build_narrative_prompt(
             dossier_context, job_description.raw_text, tone_style=template.tone_style
         )
-        narrative = generator.generate(prompt)
+        narrative_check = check_narrative(generator.generate(prompt), dossier_context)
+        narrative = narrative_check.text
 
     output_dir.mkdir(parents=True, exist_ok=True)
     export_bundle(
         dossier, output_path, fmt=args.format, match_result=match_result, narrative=narrative
     )
+    report_lines = narrative_check.report_lines() if narrative_check else []
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "output_path": str(output_path),
+                    "narrative": narrative_check.to_dict() if narrative_check else None,
+                },
+                indent=2,
+            )
+        )
+        return 0
     print(f"[QV] Exported bundle: {output_path}")
+    for line in report_lines:
+        print(f"[QV] {line}")
     return 0
 
 
@@ -357,6 +381,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--target", help="Optional job description file to include a match summary for"
     )
     export.add_argument("--template", help="Mission template id (required if --target is given)")
+    export.add_argument("--json", action="store_true", help="Emit JSON output")
     export.add_argument(
         "--narrative",
         action="store_true",

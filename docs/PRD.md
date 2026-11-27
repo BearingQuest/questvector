@@ -223,12 +223,20 @@ Acceptance criteria use EARS-style phrasing.
   show the user exactly what dossier and job-description text will be sent
   and to which provider, and SHALL send nothing unless the user confirms.
 
-**R14 — Accuracy guardrails.** **Planned** (backlog item 5).
-- The narrative prompt SHALL instruct the model to use only facts in the
-  supplied dossier text and to add no titles, metrics, dates, employers, or
-  technologies.
-- The system SHALL flag narrative sentences containing numbers or proper
-  nouns that don't appear in the dossier, for the user to review.
+**R14 — Accuracy guardrails.** **Built.**
+- The narrative prompt SHALL instruct the model to output one first-person
+  summary paragraph only, to use only facts in the supplied dossier text, to
+  add no titles, metrics, numbers, dates, durations, employers, or
+  technologies, and to make no depth claim the text doesn't make.
+- The system SHALL check every generated summary before it is shown or
+  exported. It SHALL strip anything after the summary paragraph (a second
+  paragraph, a rule, an italic or bracketed note) and a heading or preamble
+  before it, and tell the user what was removed.
+- The system SHALL flag, without blocking, narrative sentences containing
+  numbers, capitalized names or technology terms, or depth words that don't
+  appear in the dossier text that was sent, and third-person pronouns. Flags
+  appear in `qv export` output, `qv export --json` and the desktop result, and
+  SHALL NOT appear in the exported file (ADR-0032).
 
 **R15 — Live provider testing at no cost.** **Partly built.**
 - The test suite SHALL include opt-in live tests, skipped by default, for at

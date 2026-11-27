@@ -73,6 +73,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from questvector.core.models import Dossier
 from questvector.exceptions import LLMError
 
 # Remote defaults follow each provider's recommended replacement on its
@@ -97,12 +98,33 @@ ANTHROPIC_THINKING_OFF_MODELS = frozenset({"claude-sonnet-5-5"})
 DEFAULT_MODEL = DEFAULT_ANTHROPIC_MODEL
 
 _NARRATIVE_SYSTEM_PROMPT = (
-    "You are a career narrative assistant. Given a candidate's dossier "
-    "excerpts and a target job description, write a concise, factual, "
-    "first-person resume summary paragraph. Never invent employers, "
-    "titles, metrics, or skills that are not present in the supplied "
-    "dossier excerpts."
+    "You are a career narrative assistant. Given a candidate's dossier excerpts and a "
+    "target job description, write one concise resume summary paragraph in the first person. "
+    "Output the paragraph only: no heading, preamble, note, explanation, list or markdown, "
+    "and nothing after the paragraph. Use only facts stated in the dossier excerpts. Do not "
+    "add titles, metrics, numbers, dates, durations, employers or technologies that are not "
+    "in the excerpts, and do not claim a level of depth (for example hands-on, expert or "
+    "deep) that the excerpts do not state. The job description shows what to emphasize; it "
+    "is not a source of facts about the candidate, so never present anything in it as the "
+    "candidate's own experience."
 )
+
+# How many capability bullets are sent to the model. The same text is what the output
+# check (questvector.core.guardrails) compares the summary against.
+NARRATIVE_CAPABILITIES_SENT = 20
+
+
+def dossier_context_for_prompt(dossier: Dossier) -> str:
+    """Return the dossier text that is sent to the model for a narrative.
+
+    Args:
+        dossier: The parsed dossier.
+
+    Returns:
+        The first :data:`NARRATIVE_CAPABILITIES_SENT` capability bullets, one per line.
+        Chronology, Impact and contact details are never sent.
+    """
+    return "\n".join(c.text for c in dossier.capabilities[:NARRATIVE_CAPABILITIES_SENT])
 
 
 @dataclass(frozen=True, slots=True)
@@ -827,5 +849,6 @@ def build_narrative_prompt(
         "Target job description:\n"
         f"{job_description.strip()}\n\n"
         f"{tone_instruction}Write a 3-4 sentence resume summary tailored to "
-        "this job, using only facts present in the dossier excerpts above."
+        "this job, using only facts present in the dossier excerpts above. Reply with the "
+        "summary paragraph only."
     )

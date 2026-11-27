@@ -21,7 +21,13 @@ from typing import Any
 from questvector.core import matcher, templates, workspace
 from questvector.core.exporter import export_bundle as _export_bundle
 from questvector.core.exporter import resolve_bundle_path
-from questvector.core.llm import PROVIDERS, build_narrative_prompt, create_narrative_generator
+from questvector.core.guardrails import check_narrative
+from questvector.core.llm import (
+    PROVIDERS,
+    build_narrative_prompt,
+    create_narrative_generator,
+    dossier_context_for_prompt,
+)
 from questvector.core.markdown_parser import parse_dossier
 from questvector.core.models import MissionTemplate
 from questvector.core.vault import VaultData, load_vault, update_vault
@@ -277,7 +283,8 @@ class Api:
                 (never persisted).
 
         Returns:
-            A bridge response wrapping the generated narrative text.
+            A bridge response wrapping the cleaned narrative text (``narrative``), what the
+            output check removed (``removed``) and the sentences to review (``flags``).
         """
         try:
             workspace_dir = Path(dir_path)
@@ -293,10 +300,16 @@ class Api:
                 host=vault_data.llm_host,
                 timeout=vault_data.llm_timeout,
             )
-            dossier_context = "\n".join(c.text for c in dossier.capabilities[:20])
+            dossier_context = dossier_context_for_prompt(dossier)
             prompt = build_narrative_prompt(dossier_context, jd_text)
-            narrative = generator.generate(prompt)
-            return _ok({"narrative": narrative})
+            checked = check_narrative(generator.generate(prompt), dossier_context)
+            return _ok(
+                {
+                    "narrative": checked.text,
+                    "removed": list(checked.removed),
+                    "flags": [flag.to_dict() for flag in checked.flags],
+                }
+            )
         except QuestVectorError as exc:
             return _err(exc)
 

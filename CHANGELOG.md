@@ -14,6 +14,7 @@ record in [`docs/decisions/`](docs/decisions/).
 ## [Unreleased]
 
 ### Added
+- Summary guardrails, backlog item 5 part 1 ([ADR-0032](docs/decisions/0032-summary-guardrails-resume-export-file-check.md), PRD R14): a stronger narrative prompt (one first-person paragraph, only facts in the excerpts, no depth claims the dossier doesn't make) and an output check on every generated summary. The check strips a note, second paragraph, rule or heading around the summary and says what it removed, and flags sentences with a number, capitalized name or technology term, or depth word that isn't in the dossier text that was sent, or with third-person pronouns. Flags show in `qv export` (new `--json`) and the desktop result; they never go into the exported file and never block it.
 - Weekly check for retired default models ([ADR-0031](docs/decisions/0031-weekly-default-model-check.md), PRD R29, backlog item 18): `model-check-weekly.yml` (Mondays and on demand, never on pull requests, not a required check) runs `scripts/check_default_models.py`, which reads each remote provider's deprecation page and opens or updates one GitHub issue when a default in `questvector/core/llm.py` is deprecated or shut down, or when a page can't be read; the run then fails. Standard library only, no API keys, CI only: the app makes no new network call. `mypy` now checks `scripts/` too.
 
 ### Changed

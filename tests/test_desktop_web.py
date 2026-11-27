@@ -104,3 +104,13 @@ def test_scan_result_has_places_for_counts_warnings_and_weak_categories() -> Non
         assert f'"{element_id}"' in source
     for key in ("counts_text", "weak_categories", "negation_warnings"):
         assert key in source
+
+
+def test_narrative_result_has_places_for_removed_text_and_flags() -> None:
+    """R14: the window lists what the output check removed and flagged, filled as text."""
+    html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    for element_id in ("narrative-removed", "narrative-flags"):
+        assert f'id="{element_id}"' in html
+        assert f'"{element_id}"' in source
+    assert "response.data" in source and "flag.sentence" in source

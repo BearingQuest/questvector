@@ -226,6 +226,94 @@ def test_export_with_narrative_calls_llm_generator(
     assert (workspace_dir / "bundles" / "resume.pdf").exists()
 
 
+def _narrative_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, narrative: str, *extra: str
+) -> Path:
+    """Run ``qv export --narrative`` with a mocked provider returning ``narrative``."""
+    workspace_dir = tmp_path / "ws"
+    cli.main(["launch", "--dir", str(workspace_dir)])
+    (workspace_dir / "Capabilities.md").write_text(
+        "## Cloud\n- Ran AWS with Terraform and cut spend by 31%\n", encoding="utf-8"
+    )
+    jd_path = tmp_path / "jd.txt"
+    jd_path.write_text("Looking for AWS Terraform experience", encoding="utf-8")
+    monkeypatch.setattr(cli.getpass, "getpass", lambda *_a, **_k: "pass")
+    vault.save_vault(
+        workspace_dir / ".questvector.vault",
+        "pass",
+        vault.VaultData(llm_provider="anthropic", llm_api_keys={"anthropic": "sk-fake"}),
+    )
+    with patch("questvector.core.llm.AnthropicNarrativeGenerator") as mock_generator_cls:
+        mock_generator_cls.return_value.generate.return_value = narrative
+        exit_code = cli.main(
+            [
+                "export",
+                "--dir",
+                str(workspace_dir),
+                "--bundle",
+                "out",
+                "--format",
+                "docx",
+                "--target",
+                str(jd_path),
+                "--template",
+                "devops-senior-mgr",
+                "--narrative",
+                *extra,
+            ]
+        )
+    assert exit_code == 0
+    return workspace_dir / "bundles" / "out.docx"
+
+
+def test_export_strips_the_trailing_note_and_tells_the_user(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R14: the 5 Nov shape: the note never reaches the file, and the output says it was removed."""
+    summary = "I ran AWS with Terraform and cut spend by 31%."
+    note = "*Note: I did not claim Datadog, HashiCorp Vault or SOC 2.*"
+
+    bundle = _narrative_export(tmp_path, monkeypatch, f"{summary}\n\n{note}")
+
+    out = capsys.readouterr().out
+    text = docx_text(bundle)
+    assert summary in text
+    assert "Datadog" not in text
+    assert "HashiCorp" not in text
+    assert "[QV] Removed from the summary (not exported): *Note: I did not claim Datadog" in out
+
+
+def test_export_flags_are_printed_but_never_exported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R14: a flagged sentence still exports, the flag is printed, and the file has no flag text."""
+    bundle = _narrative_export(tmp_path, monkeypatch, "I used Datadog for 7 years on AWS.")
+
+    out = capsys.readouterr().out
+    assert "[QV] Review: 7: number not in the dossier text" in out
+    assert "Datadog: name or term not in the dossier text" in out
+    text = docx_text(bundle)
+    assert "I used Datadog for 7 years on AWS." in text
+    assert "Review:" not in text
+    assert "not in the dossier text" not in text
+
+
+def test_export_json_carries_the_narrative_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R14: qv export --json reports the cleaned text, what was removed and the flags."""
+    _narrative_export(
+        tmp_path, monkeypatch, "I used Datadog on AWS.\n\nA second paragraph.", "--json"
+    )
+
+    out = capsys.readouterr().out
+    payload = json.loads(out[out.index("{") :])
+    assert payload["output_path"].endswith("out.docx")
+    assert payload["narrative"]["text"] == "I used Datadog on AWS."
+    assert payload["narrative"]["removed"] == ["A second paragraph."]
+    assert [f["kind"] for f in payload["narrative"]["flags"]] == ["unsupported_term"]
+
+
 def test_vault_set_key_stores_encrypted_key(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

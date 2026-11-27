@@ -164,6 +164,31 @@ def test_generate_narrative_success_with_mocked_llm(tmp_path: Path) -> None:
     assert response["data"]["narrative"] == "Generated summary."
 
 
+def test_generate_narrative_strips_and_flags_in_the_result(tmp_path: Path) -> None:
+    """R14: the desktop result holds the cleaned text, what was removed and the flags."""
+    workspace_dir = tmp_path / "ws"
+    api = Api()
+    api.launch_workspace(str(workspace_dir))
+    (workspace_dir / "Capabilities.md").write_text("## Cloud\n- Ran AWS\n", encoding="utf-8")
+    vault.save_vault(
+        workspace_dir / ".questvector.vault",
+        "pass",
+        vault.VaultData(llm_provider="anthropic", llm_api_keys={"anthropic": "sk-fake"}),
+    )
+
+    with patch("questvector.core.llm.AnthropicNarrativeGenerator") as mock_generator_cls:
+        mock_generator_cls.return_value.generate.return_value = (
+            "I ran AWS and Datadog.\n\n*Note: no SOC 2.*"
+        )
+        response = api.generate_narrative(str(workspace_dir), "some jd text", "pass")
+
+    assert response["ok"] is True
+    data = response["data"]
+    assert data["narrative"] == "I ran AWS and Datadog."
+    assert data["removed"] == ["*Note: no SOC 2.*"]
+    assert [(f["kind"], f["terms"]) for f in data["flags"]] == [("unsupported_term", ["Datadog"])]
+
+
 def test_generate_narrative_ollama_timeout_returns_error_instead_of_raising(tmp_path: Path) -> None:
     # A slow local model used to raise a raw TimeoutError through the bridge.
     workspace_dir = tmp_path / "ws"
