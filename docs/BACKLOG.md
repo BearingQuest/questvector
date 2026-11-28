@@ -88,8 +88,12 @@ or drift. Known starting points:
   the denominator is only the posting's keywords that the template also lists,
   so a large dossier covers everything and the score stops telling postings
   apart (a synthetic 120-bullet dossier scores 100.0 on both an on-target and
-  an off-target posting). **Still open (the formula).** A characterization test in
-  `tests/test_matcher.py` pins this. Options: show "N of M keywords asked" next
+  an off-target posting). **Done 28 Nov 2026**
+  ([ADR-0033](decisions/0033-score-coverage-and-relevance.md)): the score is now
+  coverage over the categories the posting asks about, plus a relevance number
+  and a LOW_RELEVANCE alert level (details after the options). The saturation test
+  in `tests/test_matcher.py` was replaced by tests of the new behavior. Options
+  considered: show "N of M keywords asked" next
   to the score (display only, no ADR); weight by recency (needs dates in
   headings); count posting keywords outside the template's categories; require
   more than one mention; count a keyword fully only when a Chronology or Impact
@@ -107,6 +111,12 @@ or drift. Known starting points:
   `cicd_automation` (weight 0.2) is asked 0 off-target and still counts as full.
   Add it to the options above: count a category the posting doesn't ask about
   as no evidence rather than full coverage.
+  **Built 28 Nov 2026 ([ADR-0033](decisions/0033-score-coverage-and-relevance.md)):**
+  that option, as coverage over asked categories only, plus relevance (asked
+  template keywords over all template keywords) and LOW_RELEVANCE below 5 asked
+  keywords or 2 asked categories. The other options (recency, more than one
+  mention, Chronology or Impact evidence only, keywords outside the template)
+  are not built.
 
 - **Spec traceability.** Code cites `MASTER_DEVELOPER_SPEC.pdf` section numbers;
   that file isn't in the repo. Decide whether to add it, or re-point citations

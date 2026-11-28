@@ -1,6 +1,6 @@
 # 0006. G-Force formula defined independently of the spec
 
-- **Status:** Accepted
+- **Status:** Accepted; the not-asked-category rule is partly superseded by [0033](0033-score-coverage-and-relevance.md)
 - **Date:** 2026-09-09
 
 ## Context

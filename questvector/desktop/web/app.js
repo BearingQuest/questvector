@@ -15,6 +15,7 @@ function setStatus(text, tone = "success") {
   el.textContent = text;
   el.style.color = tone === "critical" ? "var(--lock-on-red)"
     : tone === "warning" ? "var(--afterburner-amber)"
+    : tone === "low_relevance" ? "var(--hud-text-dim)"
     : "var(--tactical-green)";
   el.style.borderColor = el.style.color;
 }
@@ -138,18 +139,25 @@ async function refreshTemplates() {
 
 document.getElementById("btn-refresh-templates").addEventListener("click", refreshTemplates);
 
-function setGauge(score, alertLevel) {
+// coverage is null when the posting asks nothing of the template: no number, never 100.
+function setGauge(coverage, alertLevel) {
   const fill = document.getElementById("gauge-fill");
-  const offset = GAUGE_CIRCUMFERENCE * (1 - Math.max(0, Math.min(100, score)) / 100);
+  const shown = coverage === null ? 0 : coverage;
+  const offset = GAUGE_CIRCUMFERENCE * (1 - Math.max(0, Math.min(100, shown)) / 100);
   fill.style.strokeDashoffset = String(offset);
+  // At 0 the round line cap would still draw a dot, at the far (100%) end of the arc: hide the fill.
+  fill.style.display = shown <= 0 ? "none" : "";
   const colorVar = alertLevel === "critical" ? "var(--lock-on-red)"
     : alertLevel === "warning" ? "var(--afterburner-amber)"
+    : alertLevel === "low_relevance" ? "var(--hud-text-dim)"
     : "var(--tactical-green)";
   fill.style.stroke = colorVar;
-  document.getElementById("gauge-readout").textContent = `${score.toFixed(1)}%`;
+  document.getElementById("gauge-readout").textContent =
+    coverage === null ? "--" : `${coverage.toFixed(1)}%`;
   document.getElementById("gauge-alert").textContent =
     alertLevel === "critical" ? "CRITICAL GAP DETECTED"
     : alertLevel === "warning" ? "GAPS DETECTED"
+    : alertLevel === "low_relevance" ? "LOW RELEVANCE"
     : "G-FORCE MATCH LOCKED";
 }
 
@@ -170,13 +178,20 @@ document.getElementById("btn-run-scan").addEventListener("click", async () => {
   }
   lastScan = { jdText, templateId };
   const result = response.data;
-  setGauge(result.g_force_score, result.alert_level);
+  // A low-relevance result is not scored: no number on the gauge (coverage stays in the data).
+  setGauge(result.low_relevance ? null : result.coverage, result.alert_level);
+  document.getElementById("gauge-relevance").textContent = `Relevance: ${result.relevance_text}`;
   document.getElementById("gauge-counts").textContent = result.counts_text;
+  document.getElementById("relevance-note").textContent = result.relevance_note;
   setStatus("SCAN COMPLETE", result.alert_level);
 
   setList(
     document.getElementById("category-list"),
-    result.categories.map((c) => `${c.name}: ${(c.coverage * 100).toFixed(0)}% (weight ${c.weight.toFixed(2)}), ${c.counts_text}`),
+    result.categories.map((c, i) => {
+      const shown = result.category_coverage_texts[i];
+      const detail = shown === "-" ? "no coverage figure" : shown;
+      return `${c.name}: ${detail} (weight ${c.weight.toFixed(2)}), ${c.counts_text}`;
+    }),
   );
   setList(document.getElementById("gaps-list"), result.gaps.length ? result.gaps : ["None"]);
   setList(

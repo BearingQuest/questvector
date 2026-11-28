@@ -30,8 +30,9 @@ Use the logo files through `<img>` or as CSS backgrounds. Their mask ids (`m`, `
   | Locked | `SUCCESS` | `heading` color, outlined |
   | Gaps | `WARNING` | `caution` on `caution-bg` (decided 29 Oct 2026) |
   | Critical | `CRITICAL` | `error` on `error-bg` |
+  | Low relevance | `LOW_RELEVANCE` | `muted` text, no status fill; the words "Low relevance" carry the meaning (ADR-0033) |
 
-  The level itself comes from `core/matcher.py` and doesn't change. No red/green pair, and color is never the only signal. The HUD colors in `config.py` (Tactical Green, Afterburner Amber, Lock-On Red) and the current `desktop/web/` CSS are replaced by these tokens in the first UI pull request.
+  The level itself comes from `core/matcher.py`. No red/green pair, and color is never the only signal. The HUD colors in `config.py` (Tactical Green, Afterburner Amber, Lock-On Red) and the current `desktop/web/` CSS are replaced by these tokens in the first UI pull request.
 
 ## Rules from the shared base
 

@@ -165,3 +165,4 @@ button:hover { background: rgba(0, 242, 254, 0.12); }
 }
 .gauge-readout { font-family: var(--font-mono); font-size: 1.4rem; margin-top: -34px; color: var(--vector-cyan); }
 .gauge-label { font-size: 0.7rem; letter-spacing: 1px; color: var(--hud-text-dim); text-transform: uppercase; }
+.gauge-note { font-size: 0.8rem; color: var(--hud-text-dim); text-align: center; margin: 0 auto 12px; max-width: 60ch; }

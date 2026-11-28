@@ -9,7 +9,8 @@ Commands
         Initialize a local career dossier workspace with starter templates.
     qv sync-ast --target JD_FILE --template TEMPLATE_ID [--dir PATH] [--json]
         Parse a job description, run the Micro-Diff Matching Engine against
-        the workspace dossier, and print the G-Force match score.
+        the workspace dossier, and print the G-Force coverage, relevance and
+        alert level.
     qv export --bundle NAME --format {pdf,docx} [--dir PATH]
                [--target JD_FILE --template TEMPLATE_ID] [--narrative]
                [--style {report,resume}] [--cutoff-years [N]] [--json]
@@ -205,13 +206,16 @@ def _cmd_sync_ast(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result.to_dict()))
     else:
-        print(
-            f"[QV] G-Force Match: {result.g_force_score:.1f}%  ({result.alert_level.value.upper()})"
-        )
+        print(f"[QV] G-Force Match: {result.coverage_text()}  ({result.alert_level.value.upper()})")
+        print(f"[QV] Relevance: {result.relevance_text()}")
         print(f"[QV] {result.counts_text()}")
+        if result.low_relevance:
+            print(f"[QV] {result.relevance_note()}")
         for category in result.category_scores:
+            shown = result.category_coverage_text(category)
+            detail = "no coverage figure" if shown == "-" else f"{shown} coverage"
             print(
-                f"  - {category.name}: {category.coverage * 100:.0f}% coverage "
+                f"  - {category.name}: {detail} "
                 f"(weight {category.weight:.2f}), {category.counts_text()}"
             )
         if result.gaps:

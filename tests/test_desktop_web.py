@@ -99,11 +99,41 @@ def test_scan_result_has_places_for_counts_warnings_and_weak_categories() -> Non
     """R3: the window has the count line, weak categories and the negation list, filled as text."""
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
-    for element_id in ("gauge-counts", "weak-categories-list", "negation-list"):
+    for element_id in (
+        "gauge-counts",
+        "gauge-relevance",
+        "relevance-note",
+        "weak-categories-list",
+        "negation-list",
+    ):
         assert f'id="{element_id}"' in html
         assert f'"{element_id}"' in source
-    for key in ("counts_text", "weak_categories", "negation_warnings"):
+    for key in (
+        "counts_text",
+        "weak_categories",
+        "negation_warnings",
+        "relevance_text",
+        "relevance_note",
+    ):
         assert key in source
+
+
+def test_gauge_has_a_low_relevance_state_with_a_word_and_a_muted_color() -> None:
+    """R3 (ADR-0033): LOW_RELEVANCE shows the words "LOW RELEVANCE", muted, with no number."""
+    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    assert '"low_relevance"' in source
+    assert "LOW RELEVANCE" in source
+    assert "var(--hud-text-dim)" in source
+    assert "coverage === null" in source  # nothing asked: no number
+    assert "result.low_relevance ? null" in source  # not scored: the gauge shows "--"
+    assert "category_coverage_texts" in source
+
+
+def test_gauge_hides_its_fill_when_there_is_nothing_to_show() -> None:
+    """R3: not scored (null) or 0 must not leave the round cap's dot at the 100% end of the arc."""
+    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    assert re.search(r'fill\.style\.display\s*=\s*shown <= 0 \? "none" : ""', source)
+    assert "const shown = coverage === null ? 0 : coverage;" in source
 
 
 def test_narrative_result_has_places_for_removed_text_and_flags() -> None:
