@@ -22,11 +22,14 @@ class AlertLevel(str, Enum):  # noqa: UP042
 
     Values match spec Section 1: ``SUCCESS`` -> Tactical Green,
     ``WARNING`` -> Afterburner Amber, ``CRITICAL`` -> Lock-On Red.
+    ``LOW_RELEVANCE`` (ADR-0033) means the posting asks too little of the
+    template to judge; it is shown muted, not as a warning color.
     """
 
     SUCCESS = "success"
     WARNING = "warning"
     CRITICAL = "critical"
+    LOW_RELEVANCE = "low_relevance"
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,15 +264,20 @@ class CategoryScore:
         """Return how many of the posting's keywords this category asks (the M of "N of M")."""
         return len(self.matched_keywords) + len(self.gap_keywords)
 
+    @property
+    def asked(self) -> bool:
+        """Return whether the posting asks anything of this category."""
+        return self.asked_count > 0
+
     def counts_text(self) -> str:
         """Return the display text for this category's asked-keyword count.
 
         Returns:
-            ``"N of M asked"``, or ``"not asked (counts as full coverage)"`` when
-            the posting asks nothing of this category.
+            ``"N of M asked"``, or ``"not asked (left out of the score)"`` when
+            the posting asks nothing of this category (ADR-0033).
         """
-        if self.asked_count == 0:
-            return "not asked (counts as full coverage)"
+        if not self.asked:
+            return "not asked (left out of the score)"
         return f"{self.matched_count} of {self.asked_count} asked"
 
 
@@ -295,7 +303,10 @@ class MatchResult:
     """Result of running the Micro-Diff Matching Engine (spec Section 2/3).
 
     Attributes:
-        g_force_score: Overall weighted match percentage, ``0.0``-``100.0``.
+        g_force_score: Coverage: the weighted match percentage over the
+            categories the posting asks about, ``0.0``-``100.0`` (ADR-0033).
+            It is ``0.0`` when nothing is asked; use :attr:`coverage` to tell
+            that apart from a real zero.
         category_scores: Per-category breakdown.
         gaps: Keywords flagged as missing/weak (Afterburner Amber).
         red_flags: Conditions flagged as critical (Lock-On Red) — a
@@ -306,9 +317,15 @@ class MatchResult:
             template's ``gap_coverage_threshold`` (when set), reported
             separately from per-keyword ``gaps`` since a category can be
             "weak" overall without every individual keyword being missing.
-        alert_level: Overall severity derived from the score and red flags.
+        alert_level: Overall severity derived from red flags, relevance and the score.
         negation_warnings: Dossier lines that negate a keyword this match
             counted. Display only: they never change the score or alert level.
+        template_keyword_count: Distinct keywords the template lists (relevance denominator).
+        asked_template_count: Distinct template keywords the posting asks about
+            (relevance numerator); a keyword in two categories counts once.
+        low_relevance: Whether the posting asks too little of the template
+            (ADR-0033). The alert level is ``LOW_RELEVANCE`` unless a red flag
+            made it ``CRITICAL``.
     """
 
     g_force_score: float
@@ -318,6 +335,31 @@ class MatchResult:
     weak_categories: tuple[str, ...] = field(default_factory=tuple)
     alert_level: AlertLevel = AlertLevel.WARNING
     negation_warnings: tuple[NegationWarning, ...] = field(default_factory=tuple)
+    template_keyword_count: int = 0
+    asked_template_count: int = 0
+    low_relevance: bool = False
+
+    @property
+    def asked_category_count(self) -> int:
+        """Return how many template categories the posting asks about."""
+        return sum(1 for c in self.category_scores if c.asked)
+
+    @property
+    def coverage(self) -> float | None:
+        """Return the coverage percentage, or ``None`` when no weighted category is asked."""
+        if not any(c.asked and c.weight > 0 for c in self.category_scores):
+            return None
+        return self.g_force_score
+
+    @property
+    def relevance(self) -> float | None:
+        """Return asked template keywords as a percentage of all of them.
+
+        ``None`` when the template lists no keywords.
+        """
+        if self.template_keyword_count == 0:
+            return None
+        return round(self.asked_template_count / self.template_keyword_count * 100.0, 1)
 
     @property
     def matched_count(self) -> int:
@@ -353,15 +395,80 @@ class MatchResult:
             "in this posting are in your dossier"
         )
 
+    def coverage_text(self) -> str:
+        """Return the display text for the coverage number.
+
+        Returns:
+            ``"85.9% coverage"``; a plain note when nothing is asked; and
+            ``"not scored (low relevance)"`` when the posting asks too little of the
+            template, so no coverage percentage is shown for it (ADR-0033). The
+            ``coverage`` number stays in ``to_dict`` for readers of the JSON.
+        """
+        if self.coverage is None:
+            return "no template keywords found in this posting"
+        if self.low_relevance:
+            return "not scored (low relevance)"
+        return f"{self.coverage:.1f}% coverage"
+
+    def category_coverage_text(self, score: CategoryScore) -> str:
+        """Return a category's coverage for display: a percentage, or ``"-"`` where none is shown.
+
+        A not-asked category, and every category of a low-relevance result, has no figure.
+        """
+        if not score.asked or self.low_relevance:
+            return "-"
+        return f"{score.coverage * 100:.0f}%"
+
+    def relevance_text(self) -> str:
+        """Return the display text for relevance, e.g. ``"15 of 36 template keywords (42%)"``."""
+        if self.relevance is None:
+            return "this template lists no keywords"
+        return (
+            f"{self.asked_template_count} of {self.template_keyword_count} "
+            f"template keywords ({self.relevance:.0f}%)"
+        )
+
+    def relevance_note(self) -> str:
+        """Return the plain-words note for a low-relevance posting, else an empty string."""
+        if not self.low_relevance:
+            return ""
+        if self.asked_template_count == 0:
+            return (
+                "No template keywords found in this posting, so the template doesn't "
+                "apply. Try another template."
+            )
+        return (
+            f"This posting asks little of this template ({self.asked_template_count} of "
+            f"{self.template_keyword_count} keywords, {self.asked_category_count} of "
+            f"{len(self.category_scores)} categories). Try another template; coverage "
+            "only covers what the posting asks."
+        )
+
     def to_dict(self) -> dict[str, Any]:
         """Return the JSON-serializable form used by ``qv sync-ast --json`` and the desktop.
 
+        ``g_force_score`` is the coverage over asked categories (ADR-0033);
+        ``coverage`` is the same number, or ``None`` when nothing is asked.
+
         Returns:
-            A dict of the score, alert level, gaps, red flags, weak categories,
-            per-category detail, the asked-keyword counts and the negation warnings.
+            A dict of the score, coverage, relevance, alert level, gaps, red flags,
+            weak categories, per-category detail, the asked-keyword counts and the
+            negation warnings.
         """
         return {
             "g_force_score": self.g_force_score,
+            "coverage": self.coverage,
+            "relevance": self.relevance,
+            "low_relevance": self.low_relevance,
+            "asked_template_count": self.asked_template_count,
+            "template_keyword_count": self.template_keyword_count,
+            "asked_category_count": self.asked_category_count,
+            "coverage_text": self.coverage_text(),
+            "category_coverage_texts": [
+                self.category_coverage_text(c) for c in self.category_scores
+            ],
+            "relevance_text": self.relevance_text(),
+            "relevance_note": self.relevance_note(),
             "alert_level": self.alert_level.value,
             "gaps": list(self.gaps),
             "red_flags": list(self.red_flags),

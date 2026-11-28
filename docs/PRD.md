@@ -96,9 +96,9 @@ first browser version has no AI (R28).
   templates, exported bundles, and the vault.
 - **Mission template.** A YAML file of weighted categories, each with
   keywords, describing what a role type values (ADR-0003). Weights sum to 1.00.
-- **G-Force score.** The weighted coverage of a template's categories, as a
-  percentage, with gaps, weak categories, red flags, and an alert level
-  (ADR-0006).
+- **G-Force score.** The weighted coverage of the template categories the
+  posting asks about, as a percentage (coverage), with relevance, gaps, weak
+  categories, red flags, and an alert level (ADR-0006, ADR-0033).
 - **Bundle.** A PDF or DOCX compiled from the dossier, optionally with a match
   summary and an AI-drafted narrative.
 - **Vault.** An encrypted local file holding the AI provider choice and keys
@@ -131,8 +131,18 @@ Acceptance criteria use EARS-style phrasing.
 
 **R3 — Score a job description.** **Built.**
 - WHEN the user runs `qv sync-ast --target <file> --template <id>`, or runs a
-  match in the desktop app, THEN the system SHALL show the G-Force score,
-  per-category coverage, gaps, weak categories, red flags, and alert level.
+  match in the desktop app, THEN the system SHALL show the G-Force coverage
+  (the score over the categories the posting asks about), the relevance
+  (template keywords the posting asks about, out of all template keywords),
+  per-category coverage, gaps, weak categories, red flags, and alert level
+  (ADR-0033).
+- WHERE the posting asks about too few template keywords or categories, the
+  alert level SHALL be LOW_RELEVANCE (unless a red flag makes it CRITICAL) and
+  the result SHALL say so in plain words and suggest another template, and
+  SHALL NOT show a coverage percentage to the reader ("not scored"; the
+  number stays in `--json`). WHERE
+  it asks about none, the result SHALL say "no template keywords found" and
+  SHALL NOT show 100% or any other coverage number (ADR-0033).
 - WHERE `--json` is given, the output SHALL be machine-readable.
 - The result SHALL show, next to the score, how many of the posting's template
   keywords the dossier has ("N of M"), and for each category "N of M asked" or
@@ -149,8 +159,12 @@ Acceptance criteria use EARS-style phrasing.
   Section 5. The same inputs SHALL always produce the same score.
 - Job-description text, dossier text and template keywords SHALL be normalized
   the same way before they are compared (ADR-0027).
-- A category with nothing relevant in the job description SHALL NOT lower
-  the score.
+- A category with nothing relevant in the job description SHALL be left out
+  of the score and of its weight total, so it neither raises nor lowers it
+  (ADR-0033, which replaces the earlier "counts as full coverage" rule).
+- Relevance SHALL count each distinct template keyword once, even when
+  several categories list it. The low-relevance minimums (5 keywords, 2
+  categories) SHALL be capped by the template's own size.
 
 **R5 — Explain the score.** **Planned** (backlog item 10).
 - The documentation SHALL include a worked example showing how one job
@@ -186,7 +200,8 @@ Acceptance criteria use EARS-style phrasing.
   from both `qv export` and the desktop app; any other name SHALL be refused
   with a plain error before anything is written (ADR-0029).
 - WHERE a match summary is included, the bundle SHALL show the asked-keyword
-  counts beside each category and the overall count. It SHALL NOT include
+  counts beside each category and the overall count, the coverage and the
+  relevance, and the low-relevance note when it applies. It SHALL NOT include
   negation warnings (ADR-0030).
 
 **R9 — ATS-safe resume output.** **Built** (backlog item 5; ADR-0032).

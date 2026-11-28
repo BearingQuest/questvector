@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -14,6 +13,7 @@ from questvector.core.models import (
     AlertLevel,
     Capability,
     Dossier,
+    MatchResult,
     MissionTemplate,
     TemplateCategory,
 )
@@ -77,17 +77,27 @@ def test_run_match_zero_coverage_on_heavy_category_is_red_flag() -> None:
     assert result.alert_level == AlertLevel.CRITICAL
 
 
-def test_run_match_category_with_no_relevant_keywords_scores_as_fully_covered() -> None:
-    dossier = Dossier()
-    jd = parse_job_description("A job description with no overlapping terms at all", source="test")
-    # Category keywords that don't appear in the JD at all -> nothing "relevant" to check.
+def test_run_match_category_with_no_relevant_keywords_is_left_out_of_the_score() -> None:
+    """R4 (ADR-0033): a category nothing in the posting asks about is left out, not full.
+
+    This replaces the ADR-0006 test that pinned such a category at 100.0.
+    """
+    jd = parse_job_description("Needs aws and welding", source="test")
     template = _template(
-        TemplateCategory(name="niche", weight=1.0, keywords=("cobol", "mainframe"))
+        TemplateCategory(name="cloud", weight=0.5, keywords=("aws", "azure")),
+        TemplateCategory(name="niche", weight=0.5, keywords=("cobol", "mainframe")),
     )
 
-    result = run_match(dossier, jd, template)
+    result = run_match(_dossier_from("Built things on AWS"), jd, template)
 
+    niche = next(c for c in result.category_scores if c.name == "niche")
+    assert not niche.asked
+    # cloud alone: 1 of 1 asked is covered. Counting niche as full would also give 100.0,
+    # so a miss in cloud is what shows the difference:
+    miss = run_match(_dossier_from("Built things"), jd, template)
     assert result.g_force_score == 100.0
+    assert miss.g_force_score == 0.0
+    assert miss.coverage == 0.0
 
 
 def test_run_match_no_categories_raises() -> None:
@@ -293,41 +303,198 @@ def test_run_match_negated_skill_is_counted_but_warned() -> None:
     ]
 
 
-def test_run_match_large_dossier_saturates_score_known_limitation() -> None:
-    """R4: known limitation, backlog item 1: a large dossier scores 100.0 on any posting.
+_DEVOPS_ORDER = (
+    "cloud_infrastructure",
+    "cicd_automation",
+    "reliability_operations",
+    "leadership",
+    "security_compliance",
+)
 
-    A keyword counts if it appears anywhere in the dossier, so a dossier that
-    holds the template's vocabulary covers an on-target and an off-target
-    posting equally. The scores are unchanged (ADR-0030); the asked counts now
-    tell the postings apart. Still open: the formula. A deliberate formula change
-    (a new ADR superseding ADR-0006) updates this test.
+
+def _posting_shaped(
+    asked: tuple[int, int, int, int, int], matched: tuple[int, int, int, int, int]
+) -> MatchResult:
+    """Run devops-senior-mgr on a synthetic posting asking the first N keywords per category.
+
+    ``asked[i]`` is how many of category i's keywords the posting asks about and
+    ``matched[i]`` how many of those the dossier has (the first ones).
     """
     template = _starter("devops-senior-mgr")
-    vocabulary = sorted({k for c in template.categories for k in c.keywords})
-    bullets = [f"Led {a} and {b} work for the team" for a, b in pairwise(vocabulary)]
-    bullets += [f"Delivered project {i} with automation" for i in range(120 - len(bullets))]
-    dossier = _dossier_from(*bullets)
-    on_target = parse_job_description(
-        "Senior DevOps Manager: AWS, Terraform, Kubernetes, Jenkins, monitoring, incident, "
-        "mentoring, hiring, budget, compliance, vulnerability.",
-        source="test",
-    )
-    off_target = parse_job_description(
-        "Analyst: compliance, hardening, iam, sla, uptime, budget, cloudformation.", source="test"
+    by_name = {c.name: c.keywords for c in template.categories}
+    posting_words: list[str] = []
+    dossier_bullets: list[str] = []
+    for name, n_asked, n_matched in zip(_DEVOPS_ORDER, asked, matched, strict=True):
+        posting_words += by_name[name][:n_asked]
+        dossier_bullets += [f"Worked with {k}" for k in by_name[name][:n_matched]]
+    jd = parse_job_description("Looking for " + " ".join(posting_words), source="test")
+    return run_match(_dossier_from(*dossier_bullets), jd, template)
+
+
+def test_posting_one_shape_keeps_its_score() -> None:
+    """R3/R4: 18 of 36 asked across all 5 categories still scores 96.0 (ADR-0033 table)."""
+    result = _posting_shaped(asked=(4, 3, 3, 3, 5), matched=(4, 3, 3, 3, 3))
+
+    assert result.asked_template_count == 18
+    assert result.asked_category_count == 5
+    assert result.g_force_score == result.coverage == 96.0
+    assert result.relevance == 50.0
+    assert not result.low_relevance
+
+
+def test_posting_two_shape_skips_security_and_renormalizes() -> None:
+    """R3/R4: security not asked is left out: 0.7733 / 0.9 = 85.9 coverage, 41.7% relevance.
+
+    Before ADR-0033 the same posting scored 87.3 (security counted as full).
+    """
+    result = _posting_shaped(asked=(5, 3, 3, 4, 0), matched=(4, 2, 3, 4, 0))
+
+    security = next(c for c in result.category_scores if c.name == "security_compliance")
+    assert not security.asked
+    assert result.asked_template_count == 15
+    assert result.asked_category_count == 4
+    assert result.coverage == 85.9
+    assert result.relevance == 41.7
+    assert result.relevance_text() == "15 of 36 template keywords (42%)"
+    assert not result.low_relevance
+    assert result.alert_level == AlertLevel.WARNING  # gaps remain
+
+
+def test_posting_three_shape_is_low_relevance_not_a_clean_success() -> None:
+    """R3/R4: 2 keywords asked, both leadership, both matched: no 100% SUCCESS any more.
+
+    Before ADR-0033 this scored 100.0 SUCCESS.
+    """
+    result = _posting_shaped(asked=(0, 0, 0, 2, 0), matched=(0, 0, 0, 2, 0))
+
+    assert result.alert_level == AlertLevel.LOW_RELEVANCE
+    assert result.low_relevance
+    assert (result.asked_template_count, result.asked_category_count) == (2, 1)
+    assert result.relevance == 5.6
+    # what a person reads: no coverage percentage, though `coverage` stays in the data
+    assert result.coverage == 100.0
+    assert result.coverage_text() == "not scored (low relevance)"
+    assert "%" not in result.coverage_text()
+    assert {result.category_coverage_text(c) for c in result.category_scores} == {"-"}
+    assert "little of this template" in result.relevance_note()
+    assert "Try another template" in result.relevance_note()
+
+
+def _numbered_template() -> MissionTemplate:
+    """Two categories, 3 + 4 distinct keywords (k3 is listed in both), 6 distinct overall."""
+    return _template(
+        TemplateCategory(name="a", weight=0.5, keywords=("k1", "k2", "k3")),
+        TemplateCategory(name="b", weight=0.5, keywords=("k3", "k4", "k5", "k6")),
     )
 
-    assert len(bullets) >= 100
-    on_result = run_match(dossier, on_target, template)
-    off_result = run_match(dossier, off_target, template)
-    assert on_result.g_force_score == 100.0
-    assert off_result.g_force_score == 100.0
-    assert (on_result.matched_count, on_result.asked_count) == (12, 12)
-    assert (off_result.matched_count, off_result.asked_count) == (7, 7)
-    # The finding for the later formula decision: a category the posting never
-    # asks about still counts as full coverage at its full weight.
-    cicd = next(c for c in off_result.category_scores if c.name == "cicd_automation")
-    assert (cicd.asked_count, cicd.coverage, cicd.weight) == (0, 1.0, 0.2)
-    assert cicd.counts_text() == "not asked (counts as full coverage)"
+
+def _run(template: MissionTemplate, posting: str, dossier: str = "") -> MatchResult:
+    bullets = (dossier,) if dossier else ()
+    return run_match(_dossier_from(*bullets), parse_job_description(posting, source="t"), template)
+
+
+def test_exactly_five_keywords_and_two_categories_is_not_low() -> None:
+    """R3: the minimums are inclusive: 5 keywords in 2 categories is enough."""
+    result = _run(_numbered_template(), "k1 k2 k3 k4 k5", "k1 k2 k3 k4 k5")
+
+    assert (result.asked_template_count, result.asked_category_count) == (5, 2)
+    assert not result.low_relevance
+    assert result.alert_level == AlertLevel.SUCCESS
+
+
+def test_four_keywords_is_low_relevance() -> None:
+    """R3: one keyword under the minimum, with the template large enough to need 5."""
+    result = _run(_numbered_template(), "k1 k2 k4 k5", "k1 k2 k4 k5")
+
+    assert result.asked_template_count == 4
+    assert result.alert_level == AlertLevel.LOW_RELEVANCE
+
+
+def test_one_category_with_many_keywords_is_low_relevance() -> None:
+    """R3: 3 keywords all in one category of two: only 1 category asked."""
+    template = _template(
+        TemplateCategory(name="a", weight=0.5, keywords=("k1", "k2", "k3", "k4", "k5", "k6")),
+        TemplateCategory(name="b", weight=0.5, keywords=("z1", "z2")),
+    )
+
+    result = _run(template, "k1 k2 k3 k4 k5 k6", "k1 k2 k3 k4 k5 k6")
+
+    assert (result.asked_template_count, result.asked_category_count) == (6, 1)
+    assert result.alert_level == AlertLevel.LOW_RELEVANCE
+
+
+def test_nothing_asked_is_low_relevance_with_no_coverage_number() -> None:
+    """R3: zero asked: no coverage number, never 100%, and it says so in plain words."""
+    result = _run(_numbered_template(), "Needs welding", "k1 k2")
+
+    assert result.alert_level == AlertLevel.LOW_RELEVANCE
+    assert result.coverage is None
+    assert result.g_force_score == 0.0
+    assert result.coverage_text() == "no template keywords found in this posting"
+    assert "no template keywords found" in result.relevance_note().lower()
+    assert "100" not in result.coverage_text()
+    assert result.to_dict()["coverage"] is None
+
+
+def test_a_keyword_in_two_categories_counts_once_in_relevance() -> None:
+    """R3: k3 is listed twice; asking k1 k2 k3 k4 is 4 distinct of 6, not 5 of 7."""
+    result = _run(_numbered_template(), "k1 k2 k3 k4", "k1 k2 k3 k4")
+
+    assert result.template_keyword_count == 6
+    assert result.asked_template_count == 4
+    assert result.relevance == 66.7
+    # counted twice it would reach the 5-keyword minimum and not be low
+    assert result.alert_level == AlertLevel.LOW_RELEVANCE
+
+
+def test_red_flag_with_low_relevance_is_critical() -> None:
+    """R3/R4: red flags come first: CRITICAL, though low relevance still shows."""
+    template = _template(
+        TemplateCategory(name="a", weight=0.5, keywords=("k1", "k2", "k3")),
+        TemplateCategory(name="b", weight=0.5, keywords=("k4", "k5", "k6")),
+        red_flag_phrases=("wear many hats",),
+    )
+
+    result = _run(template, "k1 and we wear many hats", "k1")
+
+    assert result.red_flags
+    assert result.low_relevance
+    assert result.alert_level == AlertLevel.CRITICAL
+    assert "little of this template" in result.relevance_note()
+
+
+def test_one_category_template_that_asks_everything_is_not_low() -> None:
+    """R3: the minimum categories is capped by the template's size (ADR-0033)."""
+    template = _template(TemplateCategory(name="only", weight=1.0, keywords=("k1", "k2", "k3")))
+
+    result = _run(template, "k1 k2 k3", "k1 k2 k3")
+
+    assert result.asked_category_count == 1
+    assert not result.low_relevance
+    assert result.alert_level == AlertLevel.SUCCESS
+
+
+def test_four_keyword_template_that_asks_everything_is_not_low() -> None:
+    """R3: the minimum keywords is capped by the template's keyword count (ADR-0033)."""
+    template = _template(
+        TemplateCategory(name="a", weight=0.5, keywords=("k1", "k2")),
+        TemplateCategory(name="b", weight=0.5, keywords=("k3", "k4")),
+    )
+
+    result = _run(template, "k1 k2 k3 k4", "k1 k2 k3 k4")
+
+    assert (result.asked_template_count, result.template_keyword_count) == (4, 4)
+    assert not result.low_relevance
+    assert result.alert_level == AlertLevel.SUCCESS
+
+
+def test_score_below_forty_is_still_critical_when_relevance_is_enough() -> None:
+    """R4: the score band stays, after low relevance in the order."""
+    result = _run(_numbered_template(), "k1 k2 k3 k4 k5 k6", "k1")
+
+    assert not result.low_relevance
+    assert result.coverage is not None and result.coverage < 40.0
+    assert result.alert_level == AlertLevel.CRITICAL
 
 
 def test_run_match_counts_are_asked_keywords_per_category_and_overall() -> None:
@@ -344,15 +511,16 @@ def test_run_match_counts_are_asked_keywords_per_category_and_overall() -> None:
     cloud, iac, people = result.category_scores
     assert cloud.counts_text() == "2 of 3 asked"
     assert iac.counts_text() == "1 of 1 asked"
-    assert people.counts_text() == "not asked (counts as full coverage)"
+    assert people.counts_text() == "not asked (left out of the score)"
     assert (people.matched_count, people.asked_count, people.coverage) == (0, 0, 1.0)
+    assert not people.asked
     # terraform sits in two categories but counts once overall
     assert (result.matched_count, result.asked_count) == (2, 3)
     assert result.counts_text() == "2 of 3 template keywords in this posting are in your dossier"
 
 
 def test_run_match_counts_when_nothing_is_asked() -> None:
-    """R3: a posting that asks nothing of the template says so, and the score is unchanged."""
+    """R3: a posting that asks nothing of the template says so (ADR-0033: no number, not 100)."""
     jd = parse_job_description("Needs welding", source="test")
     template = _template(TemplateCategory(name="cloud", weight=1.0, keywords=("aws",)))
 
@@ -360,7 +528,8 @@ def test_run_match_counts_when_nothing_is_asked() -> None:
 
     assert result.asked_count == 0
     assert result.counts_text() == "No template keywords found in this posting"
-    assert result.g_force_score == 100.0
+    assert result.coverage is None
+    assert result.alert_level == AlertLevel.LOW_RELEVANCE
 
 
 def test_run_match_category_without_keywords_counts_every_posting_keyword() -> None:

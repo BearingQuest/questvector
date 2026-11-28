@@ -134,3 +134,9 @@ MATCH_RED_FLAG_WEIGHT_THRESHOLD = 0.20
 # fired on its own.
 MATCH_CRITICAL_SCORE = 40.0
 MATCH_WARNING_SCORE = 70.0
+
+# A posting that asks about fewer template keywords or categories than this
+# is LOW_RELEVANCE: the template barely applies, so the score isn't trusted.
+# Each is capped by the template's own size (a 1-category template needs 1).
+MATCH_MIN_ASKED_KEYWORDS = 5
+MATCH_MIN_ASKED_CATEGORIES = 2

@@ -28,7 +28,7 @@
 
 *Command your job search with a local-only, privacy-first career flight deck. Score your career history against job descriptions, find the gaps, and own your career data.*
 
-<img alt="Terminal demo: qv sync-ast scores a synthetic dossier against a job description and lists coverage per category with how many asked keywords the dossier covers, gaps and weak categories." src="docs/readme/demo.gif" width="720">
+<img alt="Terminal demo: qv sync-ast scores a synthetic dossier against a job description and shows coverage and relevance, lists coverage per category with how many asked keywords the dossier covers, and shows gaps and weak categories." src="docs/readme/demo.gif" width="720">
 
 ```mermaid
 flowchart LR
@@ -133,7 +133,7 @@ python -m questvector.desktop.app   # native HUD window (requires a display)
 ```
 
 ### Fill in your dossier first
-`qv launch` creates three stub files in the workspace. Until you replace their contents with your own history, every match scores 0% (CRITICAL), because there is nothing to match against. Each file uses the same small Markdown format: `## ` headings, each followed by `- ` bullets. Other heading levels and blank lines are ignored.
+`qv launch` creates three stub files in the workspace. Until you replace their contents with your own history, a match shows 0% coverage (CRITICAL) wherever the posting asks about your template, because there is nothing to match against. Each file uses the same small Markdown format: `## ` headings, each followed by `- ` bullets. Other heading levels and blank lines are ignored.
 
 | File | Each `##` heading is | Bullets hold |
 |---|---|---|
@@ -145,7 +145,7 @@ Matching is by keyword, so use the terms a job description would use. Common var
 
 Leave out statements of what you haven't done, such as "No hands-on Kubernetes" or "Terraform training only". Matching is by keyword and ignores the "no", so such a line still counts as a Kubernetes or Terraform match. `qv sync-ast` (and the desktop window) lists any line where a negation (no, not, never, without, none, or "training only") sits next to a keyword that matched, so you can remove it. The score itself is unchanged by the warning ([ADR-0030](docs/decisions/0030-negation-warnings-and-asked-keyword-counts.md)).
 
-**Reading the score.** Next to the score, `qv sync-ast`, the desktop window and PDF and DOCX exports show "N of M template keywords in this posting are in your dossier", and each category shows "N of M asked". M counts only the posting's keywords that the template lists for that category, not everything the posting says; N is how many of those your dossier has. "Not asked" means the posting contains none of that category's keywords, and the category then counts as full coverage (it doesn't lower the score). A category with no keyword list asks about every keyword in the posting. These counts are display only: the score, the alert level and the formula are unchanged.
+**Reading the score.** Next to the score, `qv sync-ast`, the desktop window and PDF and DOCX exports show "N of M template keywords in this posting are in your dossier", and each category shows "N of M asked". M counts only the posting's keywords that the template lists for that category, not everything the posting says; N is how many of those your dossier has. "Not asked" means the posting contains none of that category's keywords, and the category is then left out of the score. The G-Force number is the **coverage** of the categories the posting does ask about, so a posting that skips a category neither raises nor lowers it. **Relevance** shows how much of the template the posting asks about ("Relevance: 15 of 36 template keywords (42%)"). When the posting asks about fewer than 5 template keywords or fewer than 2 categories (each capped by the template's size), the alert level is `LOW_RELEVANCE`: the posting asks little of this template, so try another one. A low-relevance result is not scored: the headline reads "not scored (low relevance)", the gauge shows "--" and no category shows a percentage (the `coverage` number is still in `--json`). When it asks about none, the result says "no template keywords found" and shows no coverage number. A category with no keyword list asks about every keyword in the posting. Keyword matching still can't judge seniority or depth, so the numbers are a guide, not a verdict ([ADR-0033](docs/decisions/0033-score-coverage-and-relevance.md)).
 
 **Resume style.** `qv export --bundle cv --format docx --style resume` (or choose Resume in the desktop window) writes a one-column resume that screening software can read, instead of the match report ([ADR-0032](docs/decisions/0032-summary-guardrails-resume-export-file-check.md)). It needs two things:
 - **Role headings with months** in `Chronology.md`, in the form `## Title — Employer (Mon YYYY – Mon YYYY)`, with `Present` for a current role: `## Senior SRE — Acme Corp (Jan 2020 – Mar 2023)`. Use the em dash after the title, a three-letter month, and an en dash or hyphen between the dates. If a heading doesn't fit, the error names it. The report style accepts any heading, so nothing breaks until you use the resume style.
@@ -205,6 +205,8 @@ QuestVector has no configuration file. Its tunables are constants in `questvecto
 | `MATCH_RED_FLAG_WEIGHT_THRESHOLD` | `config.py` | `0.2` | A zero-coverage category at or above this weight is a critical red flag |
 | `MATCH_CRITICAL_SCORE` | `config.py` | `40.0` | G-Force score below this is Critical |
 | `MATCH_WARNING_SCORE` | `config.py` | `70.0` | G-Force score below this is a Warning |
+| `MATCH_MIN_ASKED_KEYWORDS` | `config.py` | `5` | A posting that asks about fewer template keywords than this is Low relevance (capped by the template's keyword count) |
+| `MATCH_MIN_ASKED_CATEGORIES` | `config.py` | `2` | A posting that asks about fewer categories than this is Low relevance (capped by the template's category count) |
 | `STOPWORDS` | `config.py` | `55 words` | Words the matcher ignores |
 | `THEME.background` | `config.py` | `#0b0f19` | Current HUD colour, replaced by the UI redesign |
 | `THEME.panel` | `config.py` | `#0d1322` | Current HUD colour, replaced by the UI redesign |

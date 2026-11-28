@@ -375,3 +375,51 @@ def test_export_bundle_resume_docx_includes_the_file_check(
 
     pdf = api.export_bundle(str(workspace_dir), "cv3", "pdf", None, None, "resume")
     assert pdf["data"]["check"] is None
+
+
+def test_sync_ast_returns_the_relevance_keys(tmp_path: Path) -> None:
+    """R3 (ADR-0033): the bridge returns coverage, relevance and the low-relevance level."""
+    workspace_dir = _negated_workspace(tmp_path)
+
+    response = Api().sync_ast(str(workspace_dir), "Needs AWS and Terraform", "devops-senior-mgr")
+    data = response["data"]
+
+    assert data["alert_level"] == "low_relevance"
+    assert data["low_relevance"] is True
+    assert (data["asked_template_count"], data["template_keyword_count"]) == (2, 36)
+    assert data["relevance"] == 5.6
+    assert data["relevance_text"] == "2 of 36 template keywords (6%)"
+    assert "little of this template" in data["relevance_note"]
+    assert data["coverage"] == data["g_force_score"]
+
+
+def test_sync_ast_with_nothing_asked_has_no_coverage_number(tmp_path: Path) -> None:
+    """R3 (ADR-0033): nothing asked: coverage is null and the text says nothing was found."""
+    workspace_dir = _negated_workspace(tmp_path)
+
+    data = Api().sync_ast(str(workspace_dir), "Needs welding", "devops-senior-mgr")["data"]
+
+    assert data["coverage"] is None
+    assert data["alert_level"] == "low_relevance"
+    assert data["coverage_text"] == "no template keywords found in this posting"
+    assert "no template keywords found" in data["relevance_note"].lower()
+    assert "100%" not in data["coverage_text"] + data["relevance_note"]
+
+
+def test_sync_ast_low_relevance_data_has_no_score_percentage(tmp_path: Path) -> None:
+    """R3 (ADR-0033): what the window shows for a low-relevance result carries no percentage.
+
+    The window reads `coverage_text`, `category_coverage_texts` and, for the gauge,
+    `low_relevance` (it shows "--"); `coverage` itself stays in the data.
+    """
+    workspace_dir = _negated_workspace(tmp_path)
+
+    data = Api().sync_ast(str(workspace_dir), "Needs AWS and Terraform", "devops-senior-mgr")[
+        "data"
+    ]
+
+    assert data["low_relevance"] is True
+    assert data["coverage"] == 100.0
+    assert data["coverage_text"] == "not scored (low relevance)"
+    assert set(data["category_coverage_texts"]) == {"-"}
+    assert "%" not in data["coverage_text"] + "".join(data["category_coverage_texts"])

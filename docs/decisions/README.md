@@ -17,7 +17,7 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0003](0003-reconciled-template-schema.md) | One reconciled mission-template schema | Accepted | 2026-09-09 |
 | [0004](0004-data-driven-llm-provider-registry.md) | Data-driven LLM provider registry | Accepted | 2026-09-15 |
 | [0005](0005-ollama-over-plain-http.md) | Ollama called over plain HTTP, no SDK | Accepted | 2026-09-15 |
-| [0006](0006-independent-g-force-formula.md) | G-Force formula defined independently of the spec | Accepted; keyword inputs normalized by 0027 | 2026-09-09 |
+| [0006](0006-independent-g-force-formula.md) | G-Force formula defined independently of the spec | Accepted; keyword inputs normalized by 0027; not-asked-category rule partly superseded by 0033 | 2026-09-09 |
 | [0007](0007-ci-validates-all-templates.md) | CI validates every template, not only changed ones | Accepted | 2026-10-15 |
 | [0008](0008-ci-results-in-run-summary.md) | CI reports results in the run summary, not a PR comment | Accepted | 2026-10-15 |
 | [0009](0009-bundled-starter-templates-only.md) | Bundled package templates are the only starter source | Accepted | 2026-10-15 |
@@ -44,3 +44,4 @@ and README. Their dates are the date each decision first appears in the repo.
 | [0030](0030-negation-warnings-and-asked-keyword-counts.md) | Negation warnings and asked-keyword counts; scores and the formula unchanged | Accepted | 2026-11-26 |
 | [0031](0031-weekly-default-model-check.md) | Weekly check for retired default models, in CI only | Accepted | 2026-11-26 |
 | [0032](0032-summary-guardrails-resume-export-file-check.md) | Summary guardrails, resume-style export and a check of the exported file | Accepted | 2026-11-27 |
+| [0033](0033-score-coverage-and-relevance.md) | Score as coverage plus relevance, and a low-relevance alert level | Accepted; partly supersedes 0006 | 2026-11-28 |

@@ -18,12 +18,18 @@ Algorithm
            enumerate every possible term).
         b. ``matched`` = the subset of ``relevant`` also present anywhere
            in the dossier.
-        c. ``coverage`` = ``len(matched) / len(relevant)``, or ``1.0`` when
-           ``relevant`` is empty (nothing in that category was actually
-           asked for, so it does not penalize the score).
-    3. The overall G-Force score is the weight-normalized sum of
-       ``category.weight * coverage`` across all categories, expressed as a
-       percentage.
+        c. ``coverage`` = ``len(matched) / len(relevant)``. A category with
+           nothing relevant is *not asked*: it is left out of the score and
+           of its weight total (ADR-0033, which supersedes ADR-0006's rule
+           that it counted as full coverage).
+    3. The overall G-Force score (coverage) is the sum of
+       ``category.weight * coverage`` over the *asked* categories, divided by
+       those categories' weights, as a percentage. Relevance is the distinct
+       template keywords the JD asks about over all distinct template
+       keywords. When too little is asked (fewer than
+       :data:`questvector.config.MATCH_MIN_ASKED_KEYWORDS` keywords or
+       :data:`questvector.config.MATCH_MIN_ASKED_CATEGORIES` categories, each
+       capped by the template's size) the alert level is ``LOW_RELEVANCE``.
     4. A category is a **red flag** (Lock-On Red) when its template weight
        is at least :data:`questvector.config.MATCH_RED_FLAG_WEIGHT_THRESHOLD`
        and its coverage is exactly zero — a heavily weighted requirement the
@@ -57,6 +63,8 @@ from __future__ import annotations
 
 from questvector.config import (
     MATCH_CRITICAL_SCORE,
+    MATCH_MIN_ASKED_CATEGORIES,
+    MATCH_MIN_ASKED_KEYWORDS,
     MATCH_RED_FLAG_WEIGHT_THRESHOLD,
     MATCH_WARNING_SCORE,
 )
@@ -149,8 +157,6 @@ def run_match(
         )
 
     dossier_keywords = dossier.all_keywords()
-    weight_sum = template.weight_sum()
-    normalizer = weight_sum if weight_sum > 0 else 1.0
 
     category_scores: list[CategoryScore] = []
     for category in template.categories:
@@ -164,8 +170,12 @@ def run_match(
             )
         )
 
-    weighted_total = sum(score.weight * score.coverage for score in category_scores)
-    g_force_score = round((weighted_total / normalizer) * 100.0, 1)
+    # Only categories the posting asks about count; a not-asked category is
+    # left out of the score and of the denominator (ADR-0033).
+    asked_scores = [score for score in category_scores if score.asked]
+    asked_weight = sum(score.weight for score in asked_scores)
+    weighted_total = sum(score.weight * score.coverage for score in asked_scores)
+    g_force_score = round((weighted_total / asked_weight) * 100.0, 1) if asked_weight > 0 else 0.0
 
     gaps: set[str] = set()
     red_flags: list[str] = []
@@ -185,7 +195,19 @@ def run_match(
         if phrase.lower() in jd_text_lower:
             red_flags.append(f"Job description contains flagged phrase: '{phrase}'")
 
-    if red_flags or g_force_score < MATCH_CRITICAL_SCORE:
+    # Relevance counts distinct template keywords (a keyword in two categories
+    # once); the minimums are capped by the template's own size.
+    template_keywords = frozenset(k for category in template.categories for k in category.keywords)
+    asked_template_count = len(template_keywords & job_description.keywords)
+    min_keywords = min(MATCH_MIN_ASKED_KEYWORDS, len(template_keywords))
+    min_categories = min(MATCH_MIN_ASKED_CATEGORIES, len(template.categories))
+    low_relevance = len(asked_scores) < min_categories or asked_template_count < min_keywords
+
+    if red_flags:
+        alert_level = AlertLevel.CRITICAL
+    elif low_relevance:
+        alert_level = AlertLevel.LOW_RELEVANCE
+    elif g_force_score < MATCH_CRITICAL_SCORE:
         alert_level = AlertLevel.CRITICAL
     elif gaps or weak_categories or g_force_score < MATCH_WARNING_SCORE:
         alert_level = AlertLevel.WARNING
@@ -202,4 +224,7 @@ def run_match(
         weak_categories=tuple(weak_categories),
         alert_level=alert_level,
         negation_warnings=find_negation_warnings(dossier, matched_keywords),
+        template_keyword_count=len(template_keywords),
+        asked_template_count=asked_template_count,
+        low_relevance=low_relevance,
     )

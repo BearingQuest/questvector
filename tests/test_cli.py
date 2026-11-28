@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from datetime import date
 from pathlib import Path
@@ -525,8 +526,12 @@ def test_sync_ast_text_shows_counts_and_negation_warnings(
 
     out = capsys.readouterr().out
     assert "template keywords in this posting are in your dossier" in out
-    assert "not asked (counts as full coverage)" in out
+    assert "not asked (left out of the score)" in out
     assert " of " in out and " asked" in out
+    # 3 of the template's 36 keywords: relevance is low, and the output says so (ADR-0033)
+    assert "(LOW_RELEVANCE)" in out
+    assert "Relevance: 3 of 36 template keywords (8%)" in out
+    assert "asks little of this template" in out and "Try another template" in out
     assert 'Capabilities.md > Cloud: "No hands-on Kubernetes" (kubernetes)' in out
     assert out.isascii()
 
@@ -560,7 +565,22 @@ def test_sync_ast_json_keeps_existing_keys_and_adds_new_ones(
         "asked_count",
         "counts_text",
         "negation_warnings",
+        # ADR-0033
+        "coverage",
+        "relevance",
+        "low_relevance",
+        "asked_template_count",
+        "template_keyword_count",
+        "asked_category_count",
+        "coverage_text",
+        "category_coverage_texts",
+        "relevance_text",
+        "relevance_note",
     }
+    assert output["alert_level"] == "low_relevance"
+    assert (output["asked_template_count"], output["template_keyword_count"]) == (3, 36)
+    assert output["relevance"] == 8.3
+    assert output["coverage"] == output["g_force_score"]
     assert {"name", "weight", "coverage", "matched_keywords", "gap_keywords"} <= output[
         "categories"
     ][0].keys()
@@ -586,8 +606,76 @@ def test_export_from_the_cli_shows_counts_but_not_warnings(tmp_path: Path) -> No
         assert "template keywords in this posting are in your dossier" in text
         # PDF strings escape the parentheses, so check the two halves.
         assert "not asked" in text
-        assert "counts as full coverage" in text
+        assert "left out of the score" in text
+        assert "Relevance: 3 of 36 template keywords" in text
+        assert "little of this template" in text
         assert "Check these lines" not in text
+
+
+_PERCENT = re.compile(r"\d\s*%")
+
+
+def test_sync_ast_low_relevance_shows_no_score_percentage(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R3 (ADR-0033): a low-relevance result is "not scored": no percentage but relevance.
+
+    The 3-keyword posting scores 100.0 coverage in the data; the text must not say so.
+    """
+    workspace_dir, jd_path = _scored_workspace(tmp_path)
+    capsys.readouterr()
+    argv = ["sync-ast", "--dir", str(workspace_dir), "--target", str(jd_path)]
+
+    cli.main([*argv, "--template", "devops-senior-mgr"])
+    text_out = capsys.readouterr().out
+    cli.main([*argv, "--template", "devops-senior-mgr", "--json"])
+    data = json.loads(capsys.readouterr().out)
+
+    assert "[QV] G-Force Match: not scored (low relevance)  (LOW_RELEVANCE)" in text_out
+    assert data["coverage"] == 100.0  # unchanged in --json
+    for line in text_out.splitlines():
+        if not line.startswith("[QV] Relevance:"):
+            assert _PERCENT.search(line) is None, line
+    category_lines = [line for line in text_out.splitlines() if " (weight " in line]
+    assert category_lines and all("no coverage figure" in line for line in category_lines)
+
+
+def test_sync_ast_low_relevance_exits_zero_like_a_warning(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R3 (ADR-0033): LOW_RELEVANCE is not a failure: the exit code is 0, as for WARNING."""
+    workspace_dir, jd_path = _scored_workspace(tmp_path)
+    capsys.readouterr()
+    argv = ["sync-ast", "--dir", str(workspace_dir), "--target", str(jd_path)]
+    argv += ["--template", "devops-senior-mgr"]
+
+    code = cli.main(argv)
+
+    assert "(LOW_RELEVANCE)" in capsys.readouterr().out
+    assert code == 0
+
+
+def test_sync_ast_text_with_nothing_asked_shows_no_number(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R3 (ADR-0033): nothing asked: "no template keywords found", never 0.0% or 100%."""
+    workspace_dir, jd_path = _scored_workspace(tmp_path)
+    jd_path.write_text("Needs welding and carpentry", encoding="utf-8")
+    capsys.readouterr()
+
+    code = cli.main(
+        [
+            *["sync-ast", "--dir", str(workspace_dir), "--target", str(jd_path)],
+            *["--template", "devops-senior-mgr"],
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "no template keywords found" in out.lower()
+    assert "(LOW_RELEVANCE)" in out
+    assert "0.0%" not in out and "100%" not in out
+    assert out.isascii()
 
 
 RESUME_FIXTURES = Path(__file__).parent / "fixtures" / "resume"

@@ -32,7 +32,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import Flowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from questvector.core.contact import Contact
-from questvector.core.models import Dossier, MatchResult
+from questvector.core.models import CategoryScore, Dossier, MatchResult
 from questvector.core.resume import Resume, build_resume
 from questvector.exceptions import ExportError
 
@@ -51,6 +51,16 @@ def _para_text(text: str) -> str:
     the contact details) is added around escaped text.
     """
     return escape(text)
+
+
+def _match_heading(match_result: MatchResult) -> str:
+    """Return the report heading for a match: coverage, or a plain note when nothing is asked."""
+    return f"G-Force Match: {match_result.coverage_text()}"
+
+
+def _coverage_cell(match_result: MatchResult, score: CategoryScore) -> str:
+    """Return a category's Coverage table cell; no figure when not asked or not scored."""
+    return match_result.category_coverage_text(score)
 
 
 def _validate_format(fmt: str) -> None:
@@ -185,17 +195,20 @@ def _export_pdf(
         story.append(Spacer(1, 0.2 * inch))
 
     if match_result is not None:
+        story.append(Paragraph(_para_text(_match_heading(match_result)), heading_style))
         story.append(
-            Paragraph(f"G-Force Match Score: {match_result.g_force_score:.1f}%", heading_style)
+            Paragraph(_para_text(f"Relevance: {match_result.relevance_text()}"), body_style)
         )
         story.append(Paragraph(_para_text(match_result.counts_text()), body_style))
+        if match_result.low_relevance:
+            story.append(Paragraph(_para_text(match_result.relevance_note()), body_style))
         table_data = [["Category", "Weight", "Coverage", "Asked"]]
         for score in match_result.category_scores:
             table_data.append(
                 [
                     score.name,
                     f"{score.weight:.2f}",
-                    f"{score.coverage * 100:.0f}%",
+                    _coverage_cell(match_result, score),
                     score.counts_text(),
                 ]
             )
@@ -270,8 +283,11 @@ def _export_docx(
         document.add_paragraph(narrative)
 
     if match_result is not None:
-        document.add_heading(f"G-Force Match Score: {match_result.g_force_score:.1f}%", level=1)
+        document.add_heading(_match_heading(match_result), level=1)
+        document.add_paragraph(f"Relevance: {match_result.relevance_text()}")
         document.add_paragraph(match_result.counts_text())
+        if match_result.low_relevance:
+            document.add_paragraph(match_result.relevance_note())
         table = document.add_table(rows=1, cols=4)
         table.style = "Light Grid"
         header = table.rows[0].cells
@@ -281,7 +297,7 @@ def _export_docx(
             row = table.add_row().cells
             row[0].text = score.name
             row[1].text = f"{score.weight:.2f}"
-            row[2].text = f"{score.coverage * 100:.0f}%"
+            row[2].text = _coverage_cell(match_result, score)
             row[3].text = score.counts_text()
         if match_result.gaps:
             gaps_paragraph = document.add_paragraph()
